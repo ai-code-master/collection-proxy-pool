@@ -39,13 +39,14 @@ class SourceReviewTest(unittest.TestCase):
                                downloader=lambda *_: response(self.body))
         self.assertEqual((state, detail['reason']), ('pending', 'awaiting_rediscovery'))
 
-    def test_defers_unsupported_engine_protocol(self):
+    def test_routes_socks4_to_direct_pool(self):
         self.row['path'] = 'socks4.txt'
         body = '\n'.join(f'socks4://8.8.8.8:{port}' for port in range(1000, 1030))
+        checker = lambda *_: {'state': 'available'}
         state, detail = review(self.row, self.config, set(), set(),
-                               downloader=lambda *_: response(body))
-        self.assertEqual((state, detail['reason']),
-                         ('deferred', 'engine_protocol_not_supported'))
+                               downloader=lambda *_: response(body), checker=checker)
+        self.assertEqual((state, detail['route'], detail['protocol']),
+                         ('approved', 'direct', 'socks4'))
 
     def test_routes_vless_subscription_to_mihomo(self):
         self.row['path'] = 'clash.yaml'

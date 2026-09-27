@@ -21,7 +21,7 @@ def normalize(value, allow_loopback=False):
         parsed = urlsplit(value.strip())
         address = ipaddress.ip_address(parsed.hostname or '')
         routable = address.is_global or (allow_loopback and address.is_loopback)
-        if (parsed.scheme not in ('http', 'socks5') or not routable
+        if (parsed.scheme not in ('http', 'socks4', 'socks5') or not routable
                 or address.is_multicast or parsed.username is not None or parsed.password is not None
                 or parsed.path or parsed.query or parsed.fragment
                 or not parsed.port or not 1 <= parsed.port <= 65535):
@@ -43,6 +43,7 @@ def fetch(url, proxy='', timeout=12, headers=()):
     env = {k: v for k, v in os.environ.items()
            if k.lower() not in ('http_proxy', 'https_proxy', 'all_proxy', 'no_proxy')}
     proxy = proxy.replace('socks5://', 'socks5h://', 1)
+    proxy = proxy.replace('socks4://', 'socks4a://', 1)
     started = time.monotonic()
     with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
         command = ['/usr/bin/curl', '-q', '-sS', '--proxy', proxy, '--noproxy', '',

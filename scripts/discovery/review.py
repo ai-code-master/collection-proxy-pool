@@ -25,7 +25,7 @@ def _sample(urls, profile, size, workers, checker):
 
 
 def source_name(row, protocol):
-    suffix = protocol if protocol in ('http', 'socks5') else 'mixed'
+    suffix = protocol if protocol in ('http', 'socks4', 'socks5') else 'mixed'
     value = re.sub(r'[^A-Za-z0-9._-]+', '-', row['name']).strip('-')
     return value if value.lower().endswith('-' + suffix) else value + '-' + suffix
 

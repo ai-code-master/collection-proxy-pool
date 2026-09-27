@@ -33,6 +33,8 @@ def mihomo_records(body):
 
 def protocol_hint(row):
     value = ' '.join((row.get('name', ''), row.get('path', ''))).lower()
+    if 'socks4' in value:
+        return 'socks4'
     if 'socks5' in value:
         return 'socks5'
     if 'http' in value or 'https' in value:
@@ -44,8 +46,6 @@ def unsupported_hint(row, body):
     value = ' '.join((row.get('name', ''), row.get('path', ''), str(body)[:4000])).lower()
     if 'mtproto://' in value or 'proxy-secret' in value:
         return 'mtproto'
-    if 'socks4://' in value or 'socks4' in value:
-        return 'socks4'
     if 'wireguard' in value:
         return 'wireguard'
     return ''

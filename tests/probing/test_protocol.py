@@ -31,6 +31,13 @@ class ProtocolTests(unittest.TestCase):
         self.assertIsNone(inspect(self.sock(b'\x05',b'\x00'),'socks5','example.com',3))
         self.assertEqual(inspect(self.sock(b'\x05\x02'),'socks5','example.com',3)[0],'auth_required')
 
+    def test_socks4a_fragmented_success_and_rejection(self):
+        sock = self.sock(b'\x00\x5a', b'\x00\x00\x00\x00\x00\x00')
+        self.assertIsNone(inspect(sock, 'socks4', 'example.com', 3))
+        self.assertIn(b'example.com\x00', sock.sendall.call_args.args[0])
+        self.assertEqual(inspect(self.sock(b'\x00\x5b\x00\x00\x00\x00\x00\x00'),
+                                 'socks4', 'example.com', 3)[0], 'unreachable')
+
     def test_http_authentication_is_not_a_dead_proxy(self):
         result = inspect(self.sock(b'HTTP/1.1 407 Auth required\r\n'),'http','example.com',3)
         self.assertEqual((result[0],result[2]),('auth_required',407))

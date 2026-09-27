@@ -32,8 +32,9 @@ def render(rows, target, kind, platform):
     nodes = []
     for row in rows:
         parsed = urlsplit(row['url'])
-        nodes.append({'name': f'{row["country"]}-{parsed.scheme}-{parsed.hostname}-{parsed.port}',
-                      'type': parsed.scheme, 'server': parsed.hostname, 'port': parsed.port})
+        if parsed.scheme in ('http', 'socks5'):
+            nodes.append({'name': f'{row["country"]}-{parsed.scheme}-{parsed.hostname}-{parsed.port}',
+                          'type': parsed.scheme, 'server': parsed.hostname, 'port': parsed.port})
     if kind in ('txt', 'uri'):
         return ''.join(row['url'] + '\n' for row in rows), 'text/plain; charset=utf-8'
     if kind == 'base64':

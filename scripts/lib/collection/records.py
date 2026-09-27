@@ -21,7 +21,9 @@ def _json_records(document):
             protocol = row.get('protocol')
             if not protocol:
                 protocols = row.get('protocols') or []
-                protocol = 'http' if 'http' in protocols else 'socks5' if 'socks5' in protocols else None
+                protocol = ('http' if 'http' in protocols else
+                            'socks5' if 'socks5' in protocols else
+                            'socks4' if 'socks4' in protocols else None)
             host = row.get('host', row.get('ip'))
             if not protocol or not host:
                 yield None, None

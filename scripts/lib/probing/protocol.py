@@ -27,6 +27,18 @@ def inspect(sock, scheme, host, timeout):
                 return None
             state = 'auth_required' if code == 407 else 'unreachable'
             return state, f'proxy_prefilter:CONNECT_HTTP_{code}', code
+        if scheme == 'socks4':
+            encoded = host.encode('idna')
+            sock.sendall(b'\x04\x01\x01\xbb\x00\x00\x00\x01\x00' + encoded + b'\x00')
+            data = b''
+            while len(data) < 8:
+                block = receive(8-len(data))
+                if not block:
+                    return 'unreachable', 'proxy_prefilter:early_eof', 0
+                data += block
+            if data[0] not in (0, 4) or data[1] != 90:
+                return 'unreachable', f'proxy_prefilter:socks4_rejected_{data[1]}', 0
+            return None
         sock.sendall(b'\x05\x01\x00')
         data = b''
         while len(data) < 2:

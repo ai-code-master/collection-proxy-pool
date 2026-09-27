@@ -91,7 +91,7 @@ def listing(store, config, query):
             filters.append(query[key][0])
     protocol = query.get('protocol', [''])[0]
     if protocol:
-        if protocol not in ('http', 'socks5'):
+        if protocol not in ('http', 'socks4', 'socks5'):
             raise ValueError('未知协议')
         clauses.append('url LIKE ?')
         filters.append(protocol + '://%')

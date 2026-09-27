@@ -34,6 +34,7 @@ class CheckTest(unittest.TestCase):
                       'http://u:p@8.8.8.8:80', 'http://8.8.8.8:80/path', 'http://224.0.0.1:80'):
             self.assertIsNone(net.normalize(value))
         self.assertEqual(net.normalize('socks5://8.8.8.8:1080'), 'socks5://8.8.8.8:1080')
+        self.assertEqual(net.normalize('socks4://8.8.8.8:1080'), 'socks4://8.8.8.8:1080')
 
     def test_loopback_opt_in(self):
         # 默认仍拒绝回环；仅本地可信来源显式放行，私网地址无论如何都拒绝。
@@ -53,6 +54,10 @@ class CheckTest(unittest.TestCase):
         self.assertIn('socks5h://8.8.8.8:1080', command)
         self.assertNotIn('-k', command)
         self.assertNotIn('HTTPS_PROXY', mocked.call_args.kwargs['env'])
+
+        with patch.object(net.subprocess, 'run', side_effect=run) as socks4:
+            net.fetch('https://example.org', 'socks4://8.8.8.8:1080')
+        self.assertIn('socks4a://8.8.8.8:1080', socks4.call_args.args[0])
 
     def test_protocol_prefix_and_global_source(self):
         self.assertEqual(list(sources.source_records('new-http', '8.8.8.8:80')), [('http://8.8.8.8:80', None)])

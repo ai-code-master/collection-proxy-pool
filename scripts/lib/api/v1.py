@@ -8,7 +8,7 @@ from .proxy_scope import scoped_rows
 ROUTES = {'/api/v1/proxies/random': 'random', '/api/v1/proxies': 'list',
           '/api/v1/stats': 'stats'}
 TARGETS = {'general': 'connectivity', 'connectivity': 'connectivity'}
-PROTOCOLS = {'http', 'socks5'}
+PROTOCOLS = {'http', 'socks4', 'socks5'}
 
 
 def error(code, message, status=400):
