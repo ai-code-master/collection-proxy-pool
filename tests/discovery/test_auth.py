@@ -6,6 +6,9 @@ from scripts.discovery import auth
 
 
 class DiscoveryAuthTest(unittest.TestCase):
+    def setUp(self):
+        auth.cli_token.cache_clear()
+
     def tearDown(self):
         auth.cli_token.cache_clear()
 

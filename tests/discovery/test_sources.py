@@ -3,8 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.discovery.sources import (QUERIES, REPOSITORY_SCAN_LIMIT, candidate_paths,
-                                       discover, write_catalog)
+from scripts.discovery.sources import QUERIES, candidate_paths, discover, write_catalog
 
 
 class SourceDiscoveryTest(unittest.TestCase):
@@ -14,7 +13,7 @@ class SourceDiscoveryTest(unittest.TestCase):
                 return {'items': [{'full_name': 'owner/repo', 'default_branch': 'main'}]}
             return {'tree': [{'type': 'blob', 'path': 'lists/http.txt', 'size': 200},
                              {'type': 'blob', 'path': 'docs/proxies.txt', 'size': 20}]}
-        rows = discover(getter=getter)
+        rows = discover(getter=getter, repository_limit=6)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['url'],
                          'https://raw.githubusercontent.com/owner/repo/main/lists/http.txt')
@@ -46,8 +45,8 @@ class SourceDiscoveryTest(unittest.TestCase):
             calls['tree'] += 1
             return {'tree': []}
 
-        self.assertEqual(discover(getter=getter), [])
-        self.assertEqual(calls['tree'], len(QUERIES) * REPOSITORY_SCAN_LIMIT)
+        self.assertEqual(discover(getter=getter, repository_limit=7), [])
+        self.assertEqual(calls['tree'], len(QUERIES) * 7)
 
 
 if __name__ == '__main__':

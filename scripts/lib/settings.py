@@ -18,7 +18,7 @@ PROFILE = 'connectivity'
 PROFILES = (PROFILE,)
 SCHEDULE_KEYS = ('source_interval', 'discovery_interval', 'source_review_interval',
                  'mihomo_refresh_interval',
-                 'discovery_enabled',
+                 'discovery_enabled', 'discovery_limit', 'source_review_batch',
                  'history_recheck_interval', 'recheck_interval',
                  'new_recheck_interval', 'export_interval')
 _CONFIG_LOCK = threading.Lock()

@@ -8,7 +8,9 @@ from pathlib import Path
 from .auth import github_token
 
 API_ROOT = os.environ.get('PROXY_POOL_DISCOVERY_API', 'https://api.github.com').rstrip('/')
-REPOSITORY_SCAN_LIMIT = 12
+PUBLIC_SCAN_LIMIT = 6
+AUTHENTICATED_SCAN_LIMIT = 50
+SEARCH_RESULTS = 50
 QUERIES = ('free proxy list in:name,description,readme',
            'public http https proxy list in:name,description,readme',
            'socks4 socks5 proxy list in:name,description,readme',
@@ -36,7 +38,7 @@ def get_json(url, opener=urllib.request.urlopen):
 
 def search_url(query):
     params = urllib.parse.urlencode({'q': query, 'sort': 'updated',
-                                     'order': 'desc', 'per_page': 20})
+                                     'order': 'desc', 'per_page': SEARCH_RESULTS})
     return f'{API_ROOT}/search/repositories?{params}'
 
 
@@ -63,8 +65,11 @@ def candidate_paths(tree):
     return sorted(rows, key=lambda value: (value.count('/'), len(value)))[:4]
 
 
-def discover(limit=20, getter=get_json):
+def discover(limit=20, getter=get_json, repository_limit=None):
     found, seen = [], set()
+    scan_limit = repository_limit
+    if scan_limit is None:
+        scan_limit = AUTHENTICATED_SCAN_LIMIT if github_token() else PUBLIC_SCAN_LIMIT
     per_query = max(1, (limit + len(QUERIES) - 1) // len(QUERIES))
     for query in QUERIES:
         query_count = 0
@@ -79,7 +84,7 @@ def discover(limit=20, getter=get_json):
             if not slug or slug in seen or repository.get('archived') or repository.get('fork'):
                 continue
             seen.add(slug)
-            if scanned >= REPOSITORY_SCAN_LIMIT:
+            if scanned >= scan_limit:
                 break
             scanned += 1
             try:

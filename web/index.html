@@ -85,7 +85,9 @@
     <form id="schedule-form" class="schedule-form">
       <label><span>正式来源采集</span><input name="source_interval" type="number" min="5" max="1440" required><small>分钟</small></label>
       <label><span>新来源发现</span><input name="discovery_interval" type="number" min="1" max="168" required><small>小时</small></label>
+      <label><span>每轮发现上限</span><input name="discovery_limit" type="number" min="1" max="100" required><small>候选来源</small></label>
       <label><span>候选来源自动审核</span><input name="source_review_interval" type="number" min="1" max="168" required><small>小时</small></label>
+      <label><span>每轮审核上限</span><input name="source_review_batch" type="number" min="1" max="100" required><small>候选来源</small></label>
       <label><span>Mihomo 订阅刷新</span><input name="mihomo_refresh_interval" type="number" min="5" max="1440" required><small>分钟</small></label>
       <label><span>历史可用恢复</span><input name="history_recheck_interval" type="number" min="1" max="60" required><small>分钟</small></label>
       <label><span>稳定节点复测</span><input name="recheck_interval" type="number" min="5" max="59" required><small>分钟</small></label>

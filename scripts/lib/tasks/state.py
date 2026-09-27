@@ -87,8 +87,8 @@ def snapshot(store, config):
         row['enabled'] = bool(row['enabled'])
         row['result'] = json.loads(row['result']) if row['result'] else None
     keys = ('source_interval', 'discovery_interval', 'source_review_interval',
-            'mihomo_refresh_interval',
-            'discovery_enabled',
+            'mihomo_refresh_interval', 'discovery_enabled', 'discovery_limit',
+            'source_review_batch',
             'history_recheck_interval', 'recheck_interval',
             'new_recheck_interval', 'export_interval')
     with store.connect() as db:

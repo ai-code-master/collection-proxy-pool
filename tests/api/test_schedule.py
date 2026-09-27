@@ -78,9 +78,12 @@ class ScheduleTest(unittest.TestCase):
         target.write_text(source.read_text())
         updated = settings.update_schedule(
             {'discovery_interval': 7200, 'source_review_interval': 10800,
+             'discovery_limit': 60, 'source_review_batch': 30,
              'discovery_enabled': False}, target)
         self.assertEqual(updated['discovery_interval'], 7200)
         self.assertEqual(updated['source_review_interval'], 10800)
+        self.assertEqual(updated['discovery_limit'], 60)
+        self.assertEqual(updated['source_review_batch'], 30)
         self.assertFalse(json.loads(target.read_text())['discovery_enabled'])
         before = target.read_text()
         with self.assertRaises(ValueError):
@@ -91,6 +94,8 @@ class ScheduleTest(unittest.TestCase):
         value = state.snapshot(self.store, settings.load())
         self.assertEqual(value['settings']['discovery_interval'], 3600)
         self.assertEqual(value['settings']['source_review_interval'], 3600)
+        self.assertEqual(value['settings']['discovery_limit'], 20)
+        self.assertEqual(value['settings']['source_review_batch'], 20)
         self.assertTrue(value['settings']['discovery_enabled'])
         self.assertGreater(value['tasks'][0]['next_run'], time.time() - 2)
 

@@ -28,6 +28,8 @@ function renderSchedule(data) {
   for (const name of ['source_interval','mihomo_refresh_interval','history_recheck_interval','recheck_interval','new_recheck_interval','export_interval']) form.elements[name].value = Math.round((value[name] || 0)/60);
   form.elements.discovery_interval.value = Math.round((value.discovery_interval || 0)/3600);
   form.elements.source_review_interval.value = Math.round((value.source_review_interval || 0)/3600);
+  form.elements.discovery_limit.value = value.discovery_limit || 20;
+  form.elements.source_review_batch.value = value.source_review_batch || 20;
   form.elements.discovery_enabled.checked = value.discovery_enabled === true;
   const names = {idle:'等待',running:'运行中',error:'上次失败',disabled:'已关闭'};
   $('#schedule-tasks').innerHTML = (data.tasks || []).map(task => `<article><div><strong>${esc(task.label)}</strong><small>${names[task.status] || esc(task.status)} · 下次 ${relative(task.next_run)}</small></div><span>${task.error ? esc(task.error) : `上次完成 ${relative(task.last_finished)}`}</span></article>`).join('')+`<p class="candidate-note">待审核新来源：${Number(data.source_candidates?.pending || 0).toLocaleString()} 个。通过质量门槛后自动接入正式采集。</p>`;
@@ -144,7 +146,7 @@ $('#power').onclick = async () => {
 $('#schedule-form').onsubmit = async event => {
   event.preventDefault(); const form = event.currentTarget; const button = form.querySelector('button');
   const minutes = name => Math.round(Number(form.elements[name].value)*60);
-  const data = {source_interval:minutes('source_interval'),discovery_interval:Math.round(Number(form.elements.discovery_interval.value)*3600),source_review_interval:Math.round(Number(form.elements.source_review_interval.value)*3600),mihomo_refresh_interval:minutes('mihomo_refresh_interval'),discovery_enabled:form.elements.discovery_enabled.checked,history_recheck_interval:minutes('history_recheck_interval'),recheck_interval:minutes('recheck_interval'),new_recheck_interval:minutes('new_recheck_interval'),export_interval:minutes('export_interval')};
+  const data = {source_interval:minutes('source_interval'),discovery_interval:Math.round(Number(form.elements.discovery_interval.value)*3600),discovery_limit:Math.round(Number(form.elements.discovery_limit.value)),source_review_interval:Math.round(Number(form.elements.source_review_interval.value)*3600),source_review_batch:Math.round(Number(form.elements.source_review_batch.value)),mihomo_refresh_interval:minutes('mihomo_refresh_interval'),discovery_enabled:form.elements.discovery_enabled.checked,history_recheck_interval:minutes('history_recheck_interval'),recheck_interval:minutes('recheck_interval'),new_recheck_interval:minutes('new_recheck_interval'),export_interval:minutes('export_interval')};
   button.disabled = true;
   try { const response = await fetch('/api/schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); const value = await response.json(); if (!response.ok) throw new Error(value.error || `保存失败（${response.status}）`); renderSchedule(value); setText('#schedule-saved','已保存 · '+new Date().toLocaleTimeString('zh-CN',{hour12:false})); }
   catch (error) { setText('#error',error.message); $('#error').hidden = false; }
