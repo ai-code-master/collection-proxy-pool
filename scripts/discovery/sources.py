@@ -7,12 +7,15 @@ import urllib.request
 from pathlib import Path
 
 API_ROOT = os.environ.get('PROXY_POOL_DISCOVERY_API', 'https://api.github.com').rstrip('/')
-QUERIES = ('free proxy list in:name,description',
-           'http socks5 proxy list in:name,description',
-           'free mihomo clash nodes in:name,description',
-           'free v2ray vpn subscription in:name,description')
+QUERIES = ('free proxy list in:name,description,readme',
+           'public http https proxy list in:name,description,readme',
+           'socks4 socks5 proxy list in:name,description,readme',
+           'clash mihomo subscription in:name,description,readme',
+           'v2ray vmess vless subscription in:name,description,readme',
+           'shadowsocks trojan subscription in:name,description,readme')
 PATH_WORDS = re.compile(
-    r'(proxy|proxies|http|socks|nodes?|subscription|clash|mihomo|v2ray|vless|vmess|trojan|vpn)',
+    r'(proxy|proxies|http|socks|nodes?|subscription|clash|mihomo|v2ray|vless|vmess|'
+    r'trojan|shadowsocks|ssr|hysteria2?|hy2|tuic|sing.?box|vpn)',
     re.I)
 EXCLUDED = re.compile(r'(^|/)(docs?|examples?|tests?|\.github|vendor)/', re.I)
 
