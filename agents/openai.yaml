@@ -1,0 +1,4 @@
+interface:
+  display_name: "采集代理池"
+  short_description: "持续收集免费代理，检测国内外 HTTPS 连通性并导出未过期节点"
+  default_prompt: "使用 $collection-proxy-pool 查看活跃代理、国内外连通性并维护定时服务。"

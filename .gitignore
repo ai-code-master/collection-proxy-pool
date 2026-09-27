@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+.env
+.env.*
+!.env.example
+/config.json
+/sources.json
+/mihomo.json
+/data/
+/.deploy-backups/
+/scripts/research/source_scout.py
+/scripts/research/proxy_source_scout.py
+/references/免费来源核验.md
+/references/源站统一凭据核查.md
+/ppt知识库/

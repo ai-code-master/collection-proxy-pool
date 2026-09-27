@@ -1,0 +1,26 @@
+name: proxy-pool
+
+services:
+  proxy-pool:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "21992:21992"
+    environment:
+      PROXY_POOL_DATA: /data
+      PROXY_POOL_CONFIG: /app/examples/config.json
+      PROXY_POOL_SOURCES: /app/examples/sources.json
+    volumes:
+      - proxy-pool-data:/data
+    tmpfs:
+      - /tmp
+
+volumes:
+  proxy-pool-data:

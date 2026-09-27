@@ -1,0 +1,36 @@
+{
+  "host": "0.0.0.0",
+  "port": 21992,
+  "lan_proxy_host": "auto",
+  "workers": 8,
+  "source_interval": 600,
+  "recheck_interval": 1800,
+  "valid_seconds": 3600,
+  "batch_size": 200,
+  "prefilter_workers": 32,
+  "prefilter_timeout": 3,
+  "candidate_queue_limit": 20000,
+  "candidate_source_limit": 5000,
+  "admission_batch": 400,
+  "candidate_retry_hours": 24,
+  "history_recheck_workers": 4,
+  "history_recheck_batch": 100,
+  "history_recheck_interval": 300,
+  "max_failure_retry_ratio": 0.25,
+  "api_rate_limit_per_minute": 120,
+  "cycle_interval": 1,
+  "probe_interval": 2,
+  "new_recheck_interval": 600,
+  "export_interval": 600,
+  "grade_quotas": {"A": 15, "B": 15, "D": 55, "E": 15},
+  "profiles": {
+    "connectivity": {
+      "enabled": false,
+      "targets": {
+        "domestic": [],
+        "overseas": []
+      },
+      "identity_targets": []
+    }
+  }
+}

@@ -1,0 +1,23 @@
+[Unit]
+Description=ProxyPool Core
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proxy-pool
+Group=proxy-pool
+WorkingDirectory=/opt/proxy-pool
+EnvironmentFile=/etc/proxy-pool.env
+ExecStart=/usr/bin/python3 /opt/proxy-pool/scripts/pool.py serve
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=16384
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/proxy-pool
+
+[Install]
+WantedBy=multi-user.target

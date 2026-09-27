@@ -1,0 +1,135 @@
+import {esc, countryName, relative, fullDate, copyText, getJSON} from './format.js';
+import {renderRows, renderSources} from './table.js';
+import {openDetail} from './detail.js';
+
+const $ = selector => document.querySelector(selector);
+const state = {state:'available',grade:'',retry:'',country:'',protocol:'',project:'connectivity',search:'',sort:'speed',direction:'asc',page:1};
+const gatewayHost = location.hostname.includes(':') ? `[${location.hostname}]` : location.hostname;
+const gatewayUrl = `http://${gatewayHost}:21993`;
+const randomApiUrl = location.origin+'/api/v1/proxies/random';
+let busy = false, queued = false, view = 'overview';
+
+const headings = {
+  overview:['运行总览','代理池运行总览','查看可用出口、检测队列和服务健康状态。','OPERATIONS OVERVIEW'],
+  proxies:['代理节点','节点状态与历史','查看每个出口的通用 HTTPS 连通性和复测记录。','PROXY INVENTORY'],
+  sources:['来源监测','从公开来源到有效出口','跟踪来源响应、接收数量和实际验证结果。','SOURCE HEALTH'],
+  usage:['接入中心','将代理池接入使用端','使用固定轮换端口、实时 API 或导出文件。','INTEGRATION CENTER']
+};
+
+function switchView(next) {
+  if (!headings[next]) return;
+  view = next;
+  for (const name of Object.keys(headings)) $(`#${name}-view`).hidden = name !== view;
+  document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('selected',button.dataset.view === view));
+  ['#breadcrumb','#page-title','#page-description','#page-kicker'].forEach((id,i) => { $(id).textContent = headings[view][i]; });
+}
+
+function setText(id, value) { $(id).textContent = value; }
+function renderService(status) {
+  const now = Date.now()/1000;
+  const profile = status.profiles?.connectivity || {};
+  const heartbeat = status.heartbeat || {};
+  const alive = now - (heartbeat.time || 0) < 180;
+  const stopped = (profile.paused_until || 0) > 4100000000;
+  const paused = (profile.paused_until || 0) > now;
+  const power = $('#power');
+  power.textContent = stopped ? '○ 已停止' : '● 运行中';
+  power.classList.toggle('secondary', stopped);
+  power.title = stopped ? '收集与校验已停止，点击恢复' : '点击停止收集与校验';
+  setText('#daemon-state', alive ? '维护服务运行中' : '维护心跳已延迟');
+  $('#daemon-dot').classList.toggle('stale',!alive);
+  setText('#run-state', stopped ? '收集与检测已停止' : paused ? '连通性检测已暂停' : heartbeat.state === 'pipeline' ? '预筛与 HTTPS 检测同时进行' : heartbeat.state === 'screening' ? '正在快速预筛' : '等待下一轮复测');
+  return {stopped,paused,profile};
+}
+
+function renderOverview(data) {
+  const {status,states,config} = data;
+  const available = states.available || 0;
+  const connectivity = status.connectivity || {};
+  const profile = status.profiles?.connectivity || {};
+  const queues = data.scheduling || {};
+  const last = status.last_cycle || {};
+  const service = renderService(status);
+  setText('#available-count',available.toLocaleString());
+  setText('#unique-exits',Number(profile.unique_exit_ips || 0).toLocaleString());
+  setText('#available-split',available ? `国内 ${Number(connectivity.domestic || 0).toLocaleString()} · 国外 ${Number(connectivity.overseas || 0).toLocaleString()}` : '通过通用 HTTPS 连通性检测');
+  setText('#tab-available',available);
+  setText('#candidate-count',Number(status.candidates || 0).toLocaleString());
+  setText('#pending-count',Number(states.untested || 0).toLocaleString());
+  setText('#checked-count',Math.max(0,(status.candidates || 0)-(states.untested || 0)).toLocaleString());
+  setText('#median',data.median_ms == null ? '—' : Number(data.median_ms).toLocaleString()+' ms');
+  setText('#domestic-count',Number(connectivity.domestic || 0).toLocaleString());
+  setText('#overseas-count',Number(connectivity.overseas || 0).toLocaleString());
+  $('#domestic-bar').style.width = `${Math.min(100,(connectivity.domestic || 0)/Math.max(1,available)*100)}%`;
+  $('#overseas-bar').style.width = `${Math.min(100,(connectivity.overseas || 0)/Math.max(1,available)*100)}%`;
+  setText('#cycle-text',service.stopped ? '点击右上角开关恢复' : service.paused ? '恢复时间：'+fullDate(service.profile.paused_until) : `上轮 ${last.tested ?? 0} 个 · 预筛拦截 ${last.prefilter_failed ?? 0} · ${relative(last.finished_at)}`);
+  setText('#cadence',`${config.prefilter_workers} 路预筛 / ${config.workers} 路 HTTPS 检测 · ${config.probe_interval} 秒发起间隔`);
+  [['#due-count','due'],['#cooling-count','cooling'],['#recovery-count','recovery'],['#probe-count','probes_10m']].forEach(([id,key]) => setText(id,Number(queues[key] || 0).toLocaleString()));
+  setText('#queue-summary',`冷队列 ${Number(queues.cold || 0).toLocaleString()} · 需认证 ${Number(states.auth_required || 0).toLocaleString()} · 历史可用优先恢复`);
+  const sources = status.sources || [];
+  const healthySources = sources.filter(source => source.http_status === 200 && !source.error).length;
+  setText('#source-count',`${healthySources} / ${sources.length}`);
+  setText('#overview-updated',new Date().toLocaleTimeString('zh-CN',{hour12:false}));
+  setText('#console-version','v'+(status.version || '—'));
+  const country = state.country;
+  $('#country').innerHTML = '<option value="">所有国家 / 地区</option>'+(data.countries || []).map(c => `<option value="${esc(c.code || 'unknown')}">${esc(countryName(c.code))} · ${c.count.toLocaleString()}</option>`).join('');
+  $('#country').value = country;
+  const gradeNames = {A:'稳定',B:'观察',C:'保留',D:'待检/复核',E:'失败重试'};
+  setText('#grade-summary',Object.entries(gradeNames).map(([key,name]) => `${key} ${name} ${data.grades?.[key] || 0}`).join(' · ')+` ｜ 长期失败归档 ${status.retirement?.archived || 0} 个`);
+  renderSources(status);
+}
+
+async function refresh() {
+  if (busy) { queued = true; return; }
+  busy = true; $('#refresh').disabled = true;
+  try {
+    const [overview,list] = await Promise.all([getJSON('/api/overview'),getJSON('/api/proxies?'+new URLSearchParams(state))]);
+    if (!queued) {
+      renderOverview(overview); renderRows(list); state.page = list.page;
+      setText('#updated','数据同步于 '+new Date().toLocaleTimeString('zh-CN',{hour12:false}));
+      $('#error').hidden = true;
+    }
+  } catch (error) { setText('#error',error.message+'，保留上次数据。'); $('#error').hidden = false; }
+  finally { busy = false; $('#refresh').disabled = false; if (queued) { queued = false; refresh(); } }
+}
+
+function setState(value) {
+  state.state = value; state.page = 1; switchView('proxies');
+  document.querySelectorAll('.state-tabs button').forEach(button => button.classList.toggle('active',button.dataset.state === value));
+  refresh();
+}
+
+document.querySelectorAll('[data-state]').forEach(button => { button.onclick = () => setState(button.dataset.state); });
+document.querySelectorAll('[data-view]').forEach(button => { button.onclick = () => switchView(button.dataset.view); });
+for (const key of ['grade','retry','country','protocol','project']) $(`#${key}`).onchange = event => { state[key] = event.target.value; state.page = 1; refresh(); };
+let debounce;
+$('#search').oninput = event => { clearTimeout(debounce); debounce = setTimeout(() => { state.search = event.target.value; state.page = 1; refresh(); },250); };
+document.querySelectorAll('[data-sort]').forEach(button => { button.onclick = () => {
+  state.direction = state.sort === button.dataset.sort && state.direction === 'asc' ? 'desc' : 'asc'; state.sort = button.dataset.sort; state.page = 1;
+  document.querySelectorAll('[data-sort]').forEach(other => other.parentElement.removeAttribute('aria-sort'));
+  button.parentElement.setAttribute('aria-sort',state.direction === 'asc' ? 'ascending' : 'descending'); refresh();
+}; });
+$('#prev').onclick = () => { state.page = Math.max(1,state.page-1); refresh(); };
+$('#next').onclick = () => { state.page += 1; refresh(); };
+$('#refresh').onclick = refresh;
+$('#power').onclick = async () => {
+  const data = await getJSON('/api/overview');
+  const paused = (data.status.profiles?.connectivity?.paused_until || 0) > Date.now()/1000;
+  $('#power').disabled = true;
+  try {
+    const response = await fetch('/api/power',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:paused})});
+    if (!response.ok) throw new Error(`操作失败（${response.status}）`);
+  } catch (error) { setText('#error',error.message); $('#error').hidden = false; }
+  finally { $('#power').disabled = false; refresh(); }
+};
+$('#rows').onclick = event => { const button = event.target.closest('[data-proxy]'); if (button) openDetail(button.dataset.proxy,state.project); };
+document.querySelectorAll('[data-copy-path]').forEach(button => { button.onclick = () => copyText(location.origin+button.dataset.copyPath); });
+$('#copy-gateway').onclick = () => copyText(gatewayUrl);
+$('#copy-api').onclick = () => copyText(randomApiUrl);
+setText('#gateway-url',gatewayUrl); setText('#api-url',randomApiUrl);
+setText('#instance-api',location.origin); setText('#instance-gateway',gatewayUrl);
+setText('#service-host',location.host); setText('#next-url',randomApiUrl);
+setText('#clash-url',location.origin+'/connectivity/clash.yaml');
+switchView('overview');
+setInterval(() => { if ($('#auto').checked && !document.hidden) refresh(); },10000);
+refresh();
