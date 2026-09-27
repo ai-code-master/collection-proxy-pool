@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
 from lib import settings
 from lib.storage import Store
 from lib.tasks import state
-from lib.tasks.discovery import run as discover
+from lib.tasks.discovery import ingest, run as discover
 from lib.api.server import make_handler
 
 
@@ -62,6 +62,15 @@ class ScheduleTest(unittest.TestCase):
             state_value, reviewed = db.execute(
                 'SELECT state,reviewed_at FROM source_candidates').fetchone()
         self.assertEqual((state_value, reviewed), ('pending', None))
+
+    def test_external_provider_uses_same_candidate_store(self):
+        row = {'name': 'external-http', 'url': 'https://example.test/http.txt',
+               'repository': 'external/repo', 'path': 'http.txt'}
+        result = ingest(self.store, [row], now=1000)
+        self.assertEqual((result['found'], result['new']), (1, 1))
+        with self.store.connect() as db:
+            stored = db.execute('SELECT repository,state FROM source_candidates').fetchone()
+        self.assertEqual(tuple(stored), ('external/repo', 'pending'))
 
     def test_schedule_update_is_atomic_and_validated(self):
         source = Path(__file__).resolve().parents[1] / 'fixtures/config.json'

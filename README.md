@@ -62,6 +62,8 @@ curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies/random?reach=both"
 
 打开 Web 控制台的“调度设置”可修改发现、自动审核、采集、历史恢复、节点复测和导出间隔，并查看每个候选的审核指标与接入结果。配置会原子写入本地 `config.json`，无需重启；任务的上次结果、错误和下次运行时间保存在 SQLite 中。
 
+需要让 Hermes 等外部调度器执行补充搜索时，调用 `scripts/external_discovery.py`。它可读取同目录的 `proxy_source_queries.json`，但只能写入统一候选库；正式接入仍由自动审核器决定，避免多个调度器同时覆盖私有配置。
+
 常用地址：
 
 - Web 控制台：`http://127.0.0.1:21992/`

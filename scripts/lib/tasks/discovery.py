@@ -3,9 +3,8 @@ import time
 from discovery.sources import discover
 
 
-def run(store, config):
-    rows = discover(config['discovery_limit'])
-    now = time.time()
+def ingest(store, rows, now=None):
+    now = time.time() if now is None else now
     with store.write() as db:
         db.execute('BEGIN IMMEDIATE')
         before = db.execute('SELECT COUNT(*) FROM source_candidates').fetchone()[0]
@@ -26,3 +25,7 @@ def run(store, config):
     result = {'found': len(rows), 'new': total - before, 'pending_total': total}
     print(f'新来源发现：本轮 {len(rows)} 个，新增 {total-before} 个候选', flush=True)
     return result
+
+
+def run(store, config):
+    return ingest(store, discover(config['discovery_limit']))
