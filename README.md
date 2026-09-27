@@ -16,22 +16,25 @@
 ## 快速使用
 
 ```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+
 cp examples/config.json config.json
 cp examples/sources.json sources.json
 
 # 搜索来源候选，不会改动配置
-/opt/homebrew/bin/python3.11 scripts/pool.py discover --limit 20
+.venv/bin/python scripts/pool.py discover --limit 20
 
 # 审核输出后再合并到本地 sources.json
-/opt/homebrew/bin/python3.11 scripts/pool.py discover --limit 20 --apply
+.venv/bin/python scripts/pool.py discover --limit 20 --apply
 ```
 
 然后在本地 `config.json` 中填入你信任或自建的 HTTPS 检测目标，将 `profiles.connectivity.enabled` 改为 `true`。未配置时服务可启动控制台，但不会向外发起代理检测。
 
 ```sh
-/opt/homebrew/bin/python3.11 scripts/pool.py serve
-/opt/homebrew/bin/python3.11 scripts/pool.py status
-/opt/homebrew/bin/python3.11 scripts/pool.py next --reach any
+.venv/bin/python scripts/pool.py serve
+.venv/bin/python scripts/pool.py status
+.venv/bin/python scripts/pool.py next --reach any
 ```
 
 ```sh

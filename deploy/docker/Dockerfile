@@ -6,6 +6,8 @@ LABEL org.opencontainers.image.title="ProxyPool Core" \
       org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
 COPY . /app
 
 ENV PYTHONUNBUFFERED=1 \
