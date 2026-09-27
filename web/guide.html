@@ -5,12 +5,10 @@
 <h1>通用代理池</h1>
 <p>本服务只负责代理连通性，不判断业务站点风控，不接收下游业务反馈。</p>
 <p><strong>警告：</strong>公共代理不可信，仅限合法授权用途。请先阅读<a href="/disclaimer">完整免责声明</a>。</p>
-<h2>固定轮换入口</h2>
-<pre><code>curl -x http://&lt;部署机地址&gt;:21993 &lt;你的 HTTPS 目标&gt;</code></pre>
-<p>调用方保持同一个入口，每个新连接由 Mihomo 自动轮询可用线路。</p>
 <h2>API 领取</h2>
 <pre><code>curl --noproxy '*' 'http://&lt;部署机地址&gt;:21992/api/v1/proxies/random'</code></pre>
 <p><code>reach</code> 支持 <code>any</code>、<code>domestic</code>、<code>overseas</code>、<code>both</code>。</p>
+<p>返回的是具体代理 URI。普通 HTTP/SOCKS5 使用原地址，Mihomo 节点使用部署机上对应的独立端口，不提供统一轮换入口。</p>
 <h2>导出</h2>
 <ul><li><code>/connectivity/proxies.txt</code></li><li><code>/connectivity/proxies.uri</code></li><li><code>/connectivity/proxies.base64</code></li><li><code>/connectivity/proxies.csv</code></li><li><code>/connectivity/records.json</code></li><li><code>/connectivity/clash.yaml</code></li></ul>
 <h2>检测</h2>

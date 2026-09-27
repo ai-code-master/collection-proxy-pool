@@ -4,8 +4,6 @@ import {openDetail} from './detail.js';
 
 const $ = selector => document.querySelector(selector);
 const state = {state:'available',grade:'',retry:'',country:'',protocol:'',project:'connectivity',search:'',sort:'speed',direction:'asc',page:1};
-const gatewayHost = location.hostname.includes(':') ? `[${location.hostname}]` : location.hostname;
-const gatewayUrl = `http://${gatewayHost}:21993`;
 const randomApiUrl = location.origin+'/api/v1/proxies/random';
 let busy = false, queued = false, view = 'overview';
 
@@ -14,7 +12,7 @@ const headings = {
   proxies:['代理节点','节点状态与历史','查看每个出口的通用 HTTPS 连通性和复测记录。','PROXY INVENTORY'],
   sources:['来源监测','从公开来源到有效出口','跟踪来源响应、接收数量和实际验证结果。','SOURCE HEALTH'],
   schedule:['调度设置','服务内部调度','设置来源发现、采集、复测和导出频率。','INTERNAL SCHEDULER'],
-  usage:['接入中心','将代理池接入使用端','使用固定轮换端口、实时 API 或导出文件。','INTEGRATION CENTER']
+  usage:['接入中心','将代理池接入使用端','通过实时 API 领取具体代理地址，或下载导出文件。','INTEGRATION CENTER']
 };
 
 function switchView(next) {
@@ -84,6 +82,8 @@ function renderOverview(data) {
   const sources = status.sources || [];
   const healthySources = sources.filter(source => source.http_status === 200 && !source.error).length;
   setText('#source-count',`${healthySources} / ${sources.length}`);
+  const ports = status.clash_exit?.ports || [];
+  setText('#instance-mihomo',ports.length > 1 ? `${ports[0]}–${ports[1]}` : ports[0] || '—');
   setText('#overview-updated',new Date().toLocaleTimeString('zh-CN',{hour12:false}));
   setText('#console-version','v'+(status.version || '—'));
   const country = state.country;
@@ -148,10 +148,9 @@ $('#schedule-form').onsubmit = async event => {
 };
 $('#rows').onclick = event => { const button = event.target.closest('[data-proxy]'); if (button) openDetail(button.dataset.proxy,state.project); };
 document.querySelectorAll('[data-copy-path]').forEach(button => { button.onclick = () => copyText(location.origin+button.dataset.copyPath); });
-$('#copy-gateway').onclick = () => copyText(gatewayUrl);
 $('#copy-api').onclick = () => copyText(randomApiUrl);
-setText('#gateway-url',gatewayUrl); setText('#api-url',randomApiUrl);
-setText('#instance-api',location.origin); setText('#instance-gateway',gatewayUrl);
+setText('#api-url',randomApiUrl);
+setText('#instance-api',location.origin);
 setText('#service-host',location.host); setText('#next-url',randomApiUrl);
 setText('#clash-url',location.origin+'/connectivity/clash.yaml');
 switchView('overview');

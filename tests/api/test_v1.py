@@ -3,6 +3,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
 
@@ -67,18 +68,27 @@ class V1ApiTest(unittest.TestCase):
         self.assertEqual((status, body['api_version']), (200, 'v1'))
         self.assertEqual(body['available'], 1)
 
-    def test_mihomo_config_exposes_rotating_gateway(self):
-        config, _ = runtime.build_config([
-            {'type': 'socks5', 'server': '8.8.8.8', 'port': 1080},
-            {'type': 'http', 'server': '1.1.1.1', 'port': 8080},
-        ])
+    def test_mihomo_config_exposes_one_configurable_port_per_node(self):
+        with patch.object(runtime, 'BASE_PORT', 31001):
+            config, _ = runtime.build_config([
+                {'type': 'socks5', 'server': '8.8.8.8', 'port': 1080},
+                {'type': 'http', 'server': '1.1.1.1', 'port': 8080},
+            ])
         listeners = {row['name']: row for row in config['listeners']}
-        self.assertEqual(listeners['rotate-local']['port'], 21993)
-        self.assertEqual(listeners['rotate-lan']['port'], 21993)
-        self.assertEqual(listeners['lan-25001']['listen'], '0.0.0.0')
-        group = next(row for row in config['proxy-groups'] if row['name'] == 'ROTATE')
-        self.assertEqual((group['type'], group['strategy'], len(group['proxies'])),
-                         ('load-balance', 'round-robin', 2))
+        self.assertNotIn('rotate-local', listeners)
+        self.assertNotIn('rotate-lan', listeners)
+        self.assertEqual(listeners['lan-31001']['listen'], '0.0.0.0')
+        self.assertEqual({row['port'] for row in config['listeners']}, {31001, 31002})
+        self.assertNotIn('ROTATE', {row['name'] for row in config['proxy-groups']})
+
+    def test_legacy_rotating_gateway_can_be_removed_without_touching_lanes(self):
+        config = {'listeners': [{'name': 'lan-25001'}, {'name': 'rotate-lan'}],
+                  'proxy-groups': [{'name': 'LANE-25001'}, {'name': 'ROTATE'}],
+                  'rules': ['IN-NAME,lan-25001,LANE-25001', 'IN-NAME,rotate-lan,ROTATE']}
+        cleaned = runtime.without_rotating_gateway(config)
+        self.assertEqual(cleaned['listeners'], [{'name': 'lan-25001'}])
+        self.assertEqual(cleaned['proxy-groups'], [{'name': 'LANE-25001'}])
+        self.assertEqual(cleaned['rules'], ['IN-NAME,lan-25001,LANE-25001'])
 
 
 if __name__ == '__main__':

@@ -6,8 +6,7 @@ import urllib.request
 
 import yaml
 
-from .settings import (BASE, BASE_PORT, CONTROLLER, GROUP_HEALTH_URL,
-                       LAN_BIND_HOST, ROTATING_PORT)
+from .settings import BASE, BASE_PORT, CONTROLLER, LAN_BIND_HOST
 from .sources import stable_key
 
 MIHOMO = '/Applications/Clash Verge.app/Contents/MacOS/verge-mihomo'
@@ -16,37 +15,14 @@ QUOTED_FIELDS = re.compile(
     r'service-name): )([^"\x27\s][^\s]*)$')
 
 
-def add_rotating_gateway(config):
-    """在已生成的配置上增加固定入口；函数幂等，便于热更新现有配置。"""
-    names = [row['name'] for row in config.get('proxies', [])]
-    if not names:
-        return config
-    for listener in config.get('listeners', []):
-        if listener.get('name', '').startswith('lan-'):
-            listener['listen'] = LAN_BIND_HOST
+def without_rotating_gateway(config):
+    """移除旧版统一轮换入口，保留每节点独立端口。"""
     config['listeners'] = [row for row in config.get('listeners', [])
                            if row.get('name') not in ('rotate-local', 'rotate-lan')]
     config['proxy-groups'] = [row for row in config.get('proxy-groups', [])
                               if row.get('name') != 'ROTATE']
     config['rules'] = [rule for rule in config.get('rules', [])
                        if not rule.endswith(',ROTATE')]
-    config['listeners'].extend([
-        {'name': 'rotate-local', 'type': 'mixed', 'listen': '127.0.0.1',
-         'port': ROTATING_PORT, 'udp': True},
-        {'name': 'rotate-lan', 'type': 'mixed', 'listen': LAN_BIND_HOST,
-         'port': ROTATING_PORT, 'udp': True},
-    ])
-    group = {
-        'name': 'ROTATE', 'type': 'load-balance', 'strategy': 'round-robin',
-        'proxies': names,
-    }
-    if GROUP_HEALTH_URL:
-        group.update(url=GROUP_HEALTH_URL, interval=300, lazy=True)
-    config['proxy-groups'].append(group)
-    position = next((index for index, rule in enumerate(config['rules'])
-                     if rule.startswith('MATCH,')), len(config['rules']))
-    config['rules'][position:position] = [
-        'IN-NAME,rotate-local,ROTATE', 'IN-NAME,rotate-lan,ROTATE']
     return config
 
 
@@ -83,7 +59,7 @@ def build_config(selected):
     config = {'allow-lan': True, 'log-level': 'warning', 'mode': 'rule',
               'external-controller': CONTROLLER, 'secret': '', 'listeners': listeners,
               'proxies': proxies, 'proxy-groups': groups, 'rules': rules}
-    return add_rotating_gateway(config), ports
+    return config, ports
 
 
 def drop_invalid_proxy(config, diagnostic):

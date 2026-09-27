@@ -39,12 +39,11 @@ cp examples/sources.json sources.json
 
 ```sh
 MINI_HOST=mini.local  # 也可填部署机的私网 IP 或内网名称
-curl -x "http://${MINI_HOST}:21993" "${YOUR_HTTPS_URL}"
 curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies/random"
 curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies?limit=100"
 ```
 
-可选的 Mihomo 固定轮换入口是 `<部署机地址>:21993`，每个新连接从当前线路中轮询选择。v1 API 根据客户端访问 API 时使用的地址自动生成代理地址，不依赖写死 IP：
+v1 API 根据客户端访问 API 时使用的地址自动生成代理地址，不依赖写死 IP。Mihomo 节点每个使用一个独立端口，从 `mihomo.json` 的 `base_port` 开始，数量跟随当前节点数量；不提供统一轮换入口：
 
 ```sh
 curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies/random?reach=both"
