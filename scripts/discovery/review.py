@@ -8,10 +8,14 @@ from lib.collection.transport import download
 from .routes import direct_records, mihomo_records, protocol_hint, unsupported_hint
 
 
-def _sample(urls, profile, size, workers, checker):
+def _sample(urls, profile, size, workers, checker, offset=0):
     if not profile.get('enabled') or not urls:
         return 0, 0
-    selected = sorted(urls)[:size]
+    ordered = sorted(urls)
+    count = min(size, len(ordered))
+    step = max(1, len(ordered) // count)
+    start = offset % step
+    selected = [ordered[(start + index * step) % len(ordered)] for index in range(count)]
 
     def run(url):
         try:
@@ -71,7 +75,7 @@ def review(row, config, known, available, downloader=download, checker=checks.ch
     if base['known_available'] < config['source_review_min_success']:
         sampled, passed = _sample(novel, config['profiles']['connectivity'],
                                   config['source_review_sample_size'],
-                                  config['source_review_workers'], checker)
+                                  config['source_review_workers'], checker, attempts-1)
     base.update(sampled=sampled, sample_available=passed)
     evidence = base['known_available'] + passed
     if evidence < config['source_review_min_success']:

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.discovery.review import review
+from scripts.discovery.review import _sample, review
 from scripts.lib import settings
 from scripts.lib.storage import Store
 from scripts.lib.tasks.review import run as review_sources
@@ -32,6 +32,14 @@ class SourceReviewTest(unittest.TestCase):
         self.assertEqual(detail['novel'], 30)
         self.assertEqual(detail['sample_available'], 4)
         self.assertTrue(detail['source_name'].endswith('-http'))
+
+    def test_sampling_spreads_across_large_source(self):
+        seen = []
+        checker = lambda url, *_: seen.append(url) or {'state': 'unreachable'}
+        _sample({f'http://8.8.8.8:{port}' for port in range(1000, 1100)},
+                {'enabled': True}, 4, 1, checker)
+        ports = sorted(int(url.rsplit(':', 1)[1]) for url in seen)
+        self.assertGreater(ports[-1] - ports[0], 50)
 
     def test_waits_for_second_discovery(self):
         self.row['discoveries'] = 1
