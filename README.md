@@ -58,7 +58,7 @@ curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies/random?reach=both"
 
 ## 内部调度
 
-启动 `serve` 后，来源采集、新来源发现、候选来源审核和导出快照由服务内部调度，无需再配置 cron 或系统定时任务。默认每小时搜索并审核一次新来源；候选只有通过重复发现、下载、格式、协议、新增量和连通抽测门槛后，才会原子写入私有 `sources.json`，随后自动进入正式采集。
+启动 `serve` 后，来源采集、新来源发现、候选来源审核、Mihomo 刷新和导出快照由服务内部调度，无需再配置 cron 或系统定时任务。默认每小时搜索并审核一次新来源；候选会按内容自动分流：HTTP/SOCKS5 列表写入私有 `sources.json`，VMess、VLESS、Trojan、SS、Hysteria 和 TUIC 等订阅写入私有 `mihomo.json`，由 Mihomo 转换为本地代理端口后再进入通用池。
 
 打开 Web 控制台的“调度设置”可修改发现、自动审核、采集、历史恢复、节点复测和导出间隔，并查看每个候选的审核指标与接入结果。配置会原子写入本地 `config.json`，无需重启；任务的上次结果、错误和下次运行时间保存在 SQLite 中。
 

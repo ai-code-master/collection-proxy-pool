@@ -1,8 +1,13 @@
 import concurrent.futures
+import json
+import os
+import subprocess
+import sys
 import threading
 import time
 import traceback
 from collections import Counter
+from pathlib import Path
 
 from . import checks, settings, sources
 from .maintenance import recovery
@@ -12,6 +17,22 @@ from .probing.identity import probe as probe_identity
 from .tasks.discovery import run as discover_sources
 from .tasks.review import run as review_sources
 from .tasks.runner import Scheduler
+
+
+def refresh_mihomo(store):
+    root = settings.ROOT
+    configured = os.environ.get('PROXY_POOL_MIHOMO_CONFIG')
+    path = Path(configured).expanduser() if configured else root / 'mihomo.json'
+    if not path.exists() or not json.loads(path.read_text()).get('sources'):
+        return {'skipped': 'no_private_sources'}
+    process = subprocess.run([sys.executable, str(root / 'scripts/mihomo_refresh.py')],
+                             capture_output=True, text=True, timeout=3600)
+    if process.returncode:
+        raise RuntimeError((process.stderr or process.stdout)[-500:])
+    with store.write() as db:
+        db.execute("UPDATE scheduled_tasks SET next_run=MIN(next_run,?) "
+                   "WHERE name='source_collection'", (time.time(),))
+    return {'refreshed': True, 'output': process.stdout[-500:]}
 
 
 def paused(store):
@@ -120,6 +141,7 @@ def scheduled_jobs(store):
                                              else discover_sources(store, config)),
         'source_review': lambda config: ({'skipped': 'paused'} if paused(store)
                                           else review_sources(store, config)),
+        'mihomo_refresh': lambda _config: refresh_mihomo(store),
         'export_snapshot': lambda config: export(store, config) or {'exported': True},
     }
 

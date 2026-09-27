@@ -6,6 +6,7 @@ SPECS = {
     'source_collection': ('公开来源采集', 'source_interval', None),
     'source_discovery': ('新来源发现', 'discovery_interval', 'discovery_enabled'),
     'source_review': ('候选来源自动审核', 'source_review_interval', 'discovery_enabled'),
+    'mihomo_refresh': ('Mihomo 订阅刷新', 'mihomo_refresh_interval', None),
     'export_snapshot': ('导出快照', 'export_interval', None),
 }
 
@@ -86,6 +87,7 @@ def snapshot(store, config):
         row['enabled'] = bool(row['enabled'])
         row['result'] = json.loads(row['result']) if row['result'] else None
     keys = ('source_interval', 'discovery_interval', 'source_review_interval',
+            'mihomo_refresh_interval',
             'discovery_enabled',
             'history_recheck_interval', 'recheck_interval',
             'new_recheck_interval', 'export_interval')

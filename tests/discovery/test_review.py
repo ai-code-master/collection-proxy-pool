@@ -39,10 +39,23 @@ class SourceReviewTest(unittest.TestCase):
                                downloader=lambda *_: response(self.body))
         self.assertEqual((state, detail['reason']), ('pending', 'awaiting_rediscovery'))
 
-    def test_rejects_unsupported_protocol(self):
+    def test_defers_unsupported_engine_protocol(self):
         self.row['path'] = 'socks4.txt'
-        state, detail = review(self.row, self.config, set(), set())
-        self.assertEqual((state, detail['reason']), ('rejected', 'unsupported_protocol'))
+        body = '\n'.join(f'socks4://8.8.8.8:{port}' for port in range(1000, 1030))
+        state, detail = review(self.row, self.config, set(), set(),
+                               downloader=lambda *_: response(body))
+        self.assertEqual((state, detail['reason']),
+                         ('deferred', 'engine_protocol_not_supported'))
+
+    def test_routes_vless_subscription_to_mihomo(self):
+        self.row['path'] = 'clash.yaml'
+        body = '\n'.join(
+            f'vless://00000000-0000-0000-0000-{port:012d}@8.8.8.8:{port}#node-{port}'
+            for port in range(1000, 1030))
+        state, detail = review(self.row, self.config, set(), set(),
+                               downloader=lambda *_: response(body))
+        self.assertEqual((state, detail['route']), ('approved', 'mihomo'))
+        self.assertEqual(detail['records'], 30)
 
     def test_preserves_catalog_permissions(self):
         from scripts.discovery.sources import write_catalog
@@ -64,7 +77,7 @@ class SourceReviewTest(unittest.TestCase):
                     first_seen,last_seen,discoveries) VALUES(?,?,?,?,?,?,?)''',
                            (self.row['url'], self.row['name'], 'owner/repo',
                             self.row['path'], now, now, 2))
-            outcome = ('approved', {'source_name': 'owner-repo-http',
+            outcome = ('approved', {'source_name': 'owner-repo-http', 'route': 'direct',
                        'reason': 'quality_gate_passed', 'records': 30, 'novel': 30})
             with patch.object(settings, 'SOURCES', catalog), \
                     patch('scripts.lib.tasks.review.review', return_value=outcome):

@@ -8,8 +8,12 @@ from pathlib import Path
 
 API_ROOT = os.environ.get('PROXY_POOL_DISCOVERY_API', 'https://api.github.com').rstrip('/')
 QUERIES = ('free proxy list in:name,description',
-           'http socks5 proxy list in:name,description')
-PATH_WORDS = re.compile(r'(proxy|proxies|http|socks)', re.I)
+           'http socks5 proxy list in:name,description',
+           'free mihomo clash nodes in:name,description',
+           'free v2ray vpn subscription in:name,description')
+PATH_WORDS = re.compile(
+    r'(proxy|proxies|http|socks|nodes?|subscription|clash|mihomo|v2ray|vless|vmess|trojan|vpn)',
+    re.I)
 EXCLUDED = re.compile(r'(^|/)(docs?|examples?|tests?|\.github|vendor)/', re.I)
 
 
@@ -47,15 +51,17 @@ def candidate_paths(tree):
         path = str(item.get('path', ''))
         size = int(item.get('size') or 0)
         if (item.get('type') == 'blob' and 0 < size <= 4_000_000
-                and path.lower().endswith(('.txt', '.json'))
+                and path.lower().endswith(('.txt', '.json', '.yaml', '.yml'))
                 and PATH_WORDS.search(path) and not EXCLUDED.search(path)):
             rows.append(path)
-    return sorted(rows, key=lambda value: (value.count('/'), len(value)))[:2]
+    return sorted(rows, key=lambda value: (value.count('/'), len(value)))[:4]
 
 
 def discover(limit=20, getter=get_json):
     found, seen = [], set()
+    per_query = max(1, (limit + len(QUERIES) - 1) // len(QUERIES))
     for query in QUERIES:
+        query_count = 0
         for repository in getter(search_url(query)).get('items', []):
             slug = repository.get('full_name', '')
             branch = repository.get('default_branch', 'main')
@@ -70,9 +76,12 @@ def discover(limit=20, getter=get_json):
                 found.append({'name': slug.replace('/', '-') + '-' + Path(path).stem,
                               'url': raw_url(slug, branch, path),
                               'repository': slug, 'path': path})
-                if len(found) >= limit:
-                    return found
-    return found
+                query_count += 1
+                if query_count >= per_query:
+                    break
+            if query_count >= per_query:
+                break
+    return found[:limit]
 
 
 def write_catalog(path, candidates):

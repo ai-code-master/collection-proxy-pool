@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from discovery.review import review
 from discovery.sources import write_catalog
+from mihomo.settings import CONFIG as MIHOMO_CONFIG, add_sources
 from .. import settings
 
 
@@ -20,9 +21,11 @@ def _context(store, config):
             WHERE state='pending' ORDER BY discoveries DESC,last_seen DESC LIMIT ?''',
                                                 (config['source_review_batch'],))]
     try:
-        configured = ' '.join(json.loads(settings.SOURCES.read_text()).values()).lower()
+        direct = json.loads(settings.SOURCES.read_text()).values()
+        mihomo = json.loads(MIHOMO_CONFIG.read_text()).get('sources', [])
+        configured = {url.lower() for url in [*direct, *mihomo]}
     except (OSError, ValueError, AttributeError):
-        configured = ''
+        configured = set()
     return rows, known, available, configured
 
 
@@ -31,8 +34,7 @@ def run(store, config):
     results = []
     pending = []
     for row in rows:
-        repository = (row.get('repository') or '').lower()
-        if repository and repository in configured:
+        if row['url'].lower() in configured:
             detail = {'attempts': 1, 'reason': 'repository_already_configured',
                       'records': 0, 'novel': 0, 'known': 0, 'known_available': 0,
                       'sampled': 0, 'sample_available': 0}
@@ -45,9 +47,14 @@ def run(store, config):
             row = jobs[job]
             state, detail = job.result()
             results.append((row, state, detail))
-    approved = [{'name': detail['source_name'], 'url': row['url']}
-                for row, state, detail in results if state == 'approved']
-    added = write_catalog(settings.SOURCES, approved) if approved else 0
+    direct = [{'name': detail['source_name'], 'url': row['url']}
+              for row, state, detail in results
+              if state == 'approved' and detail.get('route') == 'direct']
+    mihomo = [row['url'] for row, state, detail in results
+              if state == 'approved' and detail.get('route') == 'mihomo']
+    direct_added = write_catalog(settings.SOURCES, direct) if direct else 0
+    mihomo_added = add_sources(mihomo, MIHOMO_CONFIG) if mihomo else 0
+    added = direct_added + mihomo_added
     now = time.time()
     with store.write() as db:
         db.execute('BEGIN IMMEDIATE')
@@ -55,11 +62,15 @@ def run(store, config):
             final = 'active' if state == 'approved' else state
             db.execute('''UPDATE source_candidates SET state=?,reviewed_at=?,review=?
                 WHERE url=?''', (final, now, json.dumps(detail), row['url']))
-        if added:
+        if direct_added:
             db.execute('''UPDATE scheduled_tasks SET next_run=MIN(next_run,?)
                 WHERE name='source_collection' ''', (now,))
+        if mihomo_added:
+            db.execute('''UPDATE scheduled_tasks SET next_run=MIN(next_run,?)
+                WHERE name='mihomo_refresh' ''', (now,))
     counts = {name: sum(state == name for _, state, _ in results)
-              for name in ('approved', 'pending', 'covered', 'rejected')}
-    value = {'reviewed': len(results), 'added': added, **counts}
+              for name in ('approved', 'pending', 'deferred', 'covered', 'rejected')}
+    value = {'reviewed': len(results), 'added': added, 'direct_added': direct_added,
+             'mihomo_added': mihomo_added, **counts}
     print(f'来源自动审核：{len(results)} 个，接入 {added} 个，拒绝 {counts["rejected"]} 个', flush=True)
     return value

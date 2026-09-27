@@ -6,6 +6,7 @@
   "source_interval": 600,
   "discovery_interval": 3600,
   "source_review_interval": 3600,
+  "mihomo_refresh_interval": 1200,
   "discovery_enabled": true,
   "discovery_limit": 20,
   "recheck_interval": 1800,

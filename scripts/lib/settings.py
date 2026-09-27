@@ -17,6 +17,7 @@ SOURCES = Path(os.environ.get('PROXY_POOL_SOURCES',
 PROFILE = 'connectivity'
 PROFILES = (PROFILE,)
 SCHEDULE_KEYS = ('source_interval', 'discovery_interval', 'source_review_interval',
+                 'mihomo_refresh_interval',
                  'discovery_enabled',
                  'history_recheck_interval', 'recheck_interval',
                  'new_recheck_interval', 'export_interval')
@@ -39,7 +40,7 @@ def load(path=None):
                     source_review_interval=3600, source_review_batch=20,
                     source_review_workers=4, source_review_sample_size=8,
                     source_review_min_records=20, source_review_min_novel=10,
-                    source_review_min_success=1)
+                    source_review_min_success=1, mihomo_refresh_interval=1200)
     for key, value in defaults.items():
         config.setdefault(key, value)
     if not 60 <= config['export_interval'] <= 3600:
@@ -56,6 +57,8 @@ def load(path=None):
             or not 1 <= config['source_review_min_novel'] <= config['source_review_min_records']
             or not 1 <= config['source_review_min_success'] <= 5):
         raise ValueError('来源审核参数超出安全范围')
+    if not 300 <= config['mihomo_refresh_interval'] <= 86400:
+        raise ValueError('Mihomo 刷新间隔须在 5 分钟至 24 小时之间')
     if not 1 <= config['prefilter_workers'] <= 64 or not 1 <= config['prefilter_timeout'] <= 5:
         raise ValueError('端口预筛并发 1–64，超时 1–5 秒')
     if (not 1000 <= config['candidate_queue_limit'] <= 100000

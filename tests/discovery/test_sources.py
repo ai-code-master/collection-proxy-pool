@@ -22,7 +22,7 @@ class SourceDiscoveryTest(unittest.TestCase):
         tree = {'tree': [{'type': 'blob', 'path': 'proxy.json', 'size': 1},
                          {'type': 'blob', 'path': 'proxy.yaml', 'size': 1},
                          {'type': 'blob', 'path': 'tests/proxy.txt', 'size': 1}]}
-        self.assertEqual(candidate_paths(tree), ['proxy.json'])
+        self.assertEqual(candidate_paths(tree), ['proxy.json', 'proxy.yaml'])
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'sources.json'
             count = write_catalog(path, [{'name': 'found', 'url': 'https://example.test/list'}])

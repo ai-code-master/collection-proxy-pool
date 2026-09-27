@@ -27,6 +27,27 @@ SUPPORTED = {'ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2',
              'hy2', 'tuic', 'socks5', 'http', 'snell'}
 
 
+def add_sources(urls, path=None):
+    """原子更新私有 Mihomo 订阅目录，不把地址写入公开仓库。"""
+    target = Path(path or CONFIG)
+    target = target.resolve() if target.exists() else target
+    try:
+        document = json.loads(target.read_text())
+        document = document if isinstance(document, dict) else {}
+    except (OSError, ValueError):
+        document = {}
+    sources = list(document.get('sources', []))
+    before = len(sources)
+    sources.extend(url for url in urls if url not in sources)
+    document['sources'] = sources
+    temporary = target.with_suffix(target.suffix + '.new')
+    temporary.write_text(json.dumps(document, ensure_ascii=False, indent=2) + '\n')
+    if target.exists():
+        temporary.chmod(target.stat().st_mode & 0o777)
+    temporary.replace(target)
+    return len(sources) - before
+
+
 def target(entry, default_status=200):
     if not entry:
         return None
