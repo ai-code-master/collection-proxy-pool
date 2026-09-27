@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.discovery.sources import candidate_paths, discover, write_catalog
+from scripts.discovery.sources import (QUERIES, REPOSITORY_SCAN_LIMIT, candidate_paths,
+                                       discover, write_catalog)
 
 
 class SourceDiscoveryTest(unittest.TestCase):
@@ -21,7 +22,9 @@ class SourceDiscoveryTest(unittest.TestCase):
     def test_filters_artifacts_and_writes_private_catalog(self):
         tree = {'tree': [{'type': 'blob', 'path': 'proxy.json', 'size': 1},
                          {'type': 'blob', 'path': 'proxy.yaml', 'size': 1},
-                         {'type': 'blob', 'path': 'tests/proxy.txt', 'size': 1}]}
+                         {'type': 'blob', 'path': 'tests/proxy.txt', 'size': 1},
+                         {'type': 'blob', 'path': 'fixtures/proxy.txt', 'size': 1},
+                         {'type': 'blob', 'path': 'proxy-placeholder.txt', 'size': 1}]}
         self.assertEqual(candidate_paths(tree), ['proxy.json', 'proxy.yaml'])
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'sources.json'
@@ -30,6 +33,21 @@ class SourceDiscoveryTest(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text()), {'found': 'https://example.test/list'})
             self.assertEqual(write_catalog(path, [
                 {'name': 'found', 'url': 'https://example.test/list'}]), 0)
+
+    def test_repository_scans_are_bounded(self):
+        calls = {'search': 0, 'tree': 0}
+
+        def getter(url):
+            if '/search/' in url:
+                calls['search'] += 1
+                prefix = calls['search']
+                return {'items': [{'full_name': f'owner{prefix}/repo{index}'}
+                                  for index in range(20)]}
+            calls['tree'] += 1
+            return {'tree': []}
+
+        self.assertEqual(discover(getter=getter), [])
+        self.assertEqual(calls['tree'], len(QUERIES) * REPOSITORY_SCAN_LIMIT)
 
 
 if __name__ == '__main__':

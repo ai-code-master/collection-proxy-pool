@@ -7,6 +7,7 @@ import urllib.request
 from pathlib import Path
 
 API_ROOT = os.environ.get('PROXY_POOL_DISCOVERY_API', 'https://api.github.com').rstrip('/')
+REPOSITORY_SCAN_LIMIT = 6
 QUERIES = ('free proxy list in:name,description,readme',
            'public http https proxy list in:name,description,readme',
            'socks4 socks5 proxy list in:name,description,readme',
@@ -17,7 +18,8 @@ PATH_WORDS = re.compile(
     r'(proxy|proxies|http|socks|nodes?|subscription|clash|mihomo|v2ray|vless|vmess|'
     r'trojan|shadowsocks|ssr|hysteria2?|hy2|tuic|sing.?box|vpn)',
     re.I)
-EXCLUDED = re.compile(r'(^|/)(docs?|examples?|tests?|\.github|vendor)/', re.I)
+EXCLUDED = re.compile(
+    r'(^|/)(docs?|examples?|tests?|fixtures?|schemas?|\.github|vendor)/|placeholder', re.I)
 
 
 def get_json(url, opener=urllib.request.urlopen):
@@ -65,12 +67,20 @@ def discover(limit=20, getter=get_json):
     per_query = max(1, (limit + len(QUERIES) - 1) // len(QUERIES))
     for query in QUERIES:
         query_count = 0
-        for repository in getter(search_url(query)).get('items', []):
+        scanned = 0
+        try:
+            repositories = getter(search_url(query)).get('items', [])
+        except (OSError, ValueError, KeyError):
+            continue
+        for repository in repositories:
             slug = repository.get('full_name', '')
             branch = repository.get('default_branch', 'main')
             if not slug or slug in seen or repository.get('archived') or repository.get('fork'):
                 continue
             seen.add(slug)
+            if scanned >= REPOSITORY_SCAN_LIMIT:
+                break
+            scanned += 1
             try:
                 paths = candidate_paths(getter(tree_url(slug, branch)))
             except (OSError, ValueError, KeyError):
