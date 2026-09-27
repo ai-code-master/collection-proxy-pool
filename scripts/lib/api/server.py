@@ -12,6 +12,8 @@ from .proxy_scope import scoped_proxy, scoped_rows
 from .runtime import BoundedThreadingHTTPServer
 from .runtime.cache import caches
 from .traffic import Limiter
+from .control import routes as control
+from ..tasks import state as task_state
 from .. import __version__
 ALIASES = {f'/{name}': kind for name, kind in EXPORT_FORMATS.items()}
 ALIASES['/pool.json'] = 'json'
@@ -53,6 +55,8 @@ def response(store, config, path, index=0, cursor=None, advertised_host=None):
                                                lambda: dashboard.listing(store, config, query)), 'json'
             if parsed.path == '/api/history':
                 return 200, dashboard.detail(store, config, query), 'json'
+            if parsed.path == '/api/schedule':
+                return 200, task_state.snapshot(store, config), 'json'
         except ValueError as error:
             return 400, {'error': str(error)}, 'json'
         return 404, {'error': 'not_found'}, 'json'
@@ -111,31 +115,7 @@ def make_handler(store):
                 pass
 
         def do_POST(self):
-            if not limiter.allow(self, settings.load()):
-                return
-            if self.path == '/api/power':
-                # 看板总开关：暂停到 2100 年即停止一切收集与校验，0 即恢复；
-                # 网页服务本身保持运行，随时可以再开回来。
-                length = int(self.headers.get('Content-Length', '0') or 0)
-                try:
-                    data = json.loads(self.rfile.read(length)) if length else {}
-                except ValueError:
-                    data = {}
-                on = data.get('on') is True
-                store.put_meta('pause:connectivity', 0 if on else 4102444800)
-                status, value = 200, {'on': on}
-            elif self.path == '/api/feedback':
-                status, value = 410, {'error': 'business_feedback_not_supported'}
-            else:
-                self.send_error(404)
-                return
-            content = json.dumps(value).encode()
-            self.send_response(status)
-            self.send_header('Content-Type', 'application/json; charset=utf-8')
-            self.send_header('Content-Length', str(len(content)))
-            self.send_header('Cache-Control', 'no-store')
-            self.end_headers()
-            self.wfile.write(content)
+            control.post(self, store, limiter)
 
         def do_GET(self):
             config = settings.load()

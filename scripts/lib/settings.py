@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import threading
 from pathlib import Path
 from urllib.parse import urlsplit
 from .scheduling.grading import QUOTAS
@@ -15,6 +16,10 @@ SOURCES = Path(os.environ.get('PROXY_POOL_SOURCES',
                LOCAL_SOURCES if LOCAL_SOURCES.exists() else ROOT / 'examples/sources.json')).expanduser()
 PROFILE = 'connectivity'
 PROFILES = (PROFILE,)
+SCHEDULE_KEYS = ('source_interval', 'discovery_interval', 'discovery_enabled',
+                 'history_recheck_interval', 'recheck_interval',
+                 'new_recheck_interval', 'export_interval')
+_CONFIG_LOCK = threading.Lock()
 
 
 def load(path=None):
@@ -28,11 +33,16 @@ def load(path=None):
                     admission_batch=200, candidate_retry_hours=24,
                     history_recheck_workers=4, history_recheck_batch=100,
                     history_recheck_interval=300, max_failure_retry_ratio=.25,
-                    api_rate_limit_per_minute=120)
+                    api_rate_limit_per_minute=120, discovery_interval=3600,
+                    discovery_enabled=True, discovery_limit=20)
     for key, value in defaults.items():
         config.setdefault(key, value)
     if not 60 <= config['export_interval'] <= 3600:
         raise ValueError('导出间隔须在 60–3600 秒之间')
+    if (not 3600 <= config['discovery_interval'] <= 604800
+            or type(config['discovery_enabled']) is not bool
+            or not 1 <= config['discovery_limit'] <= 100):
+        raise ValueError('新来源发现间隔须在 1 小时至 7 天之间')
     if not 1 <= config['prefilter_workers'] <= 64 or not 1 <= config['prefilter_timeout'] <= 5:
         raise ValueError('端口预筛并发 1–64，超时 1–5 秒')
     if (not 1000 <= config['candidate_queue_limit'] <= 100000
@@ -87,3 +97,30 @@ def load(path=None):
         target['fingerprint'] = hashlib.sha256(json.dumps(
             groups, sort_keys=True).encode()).hexdigest()[:16]
     return config
+
+
+def update_schedule(changes, path=None):
+    """原子更新私有配置；若配置是软链接，写入实际目标。"""
+    if not isinstance(changes, dict) or not changes or set(changes) - set(SCHEDULE_KEYS):
+        raise ValueError('调度设置字段无效')
+    target = Path(path or CONFIG).expanduser()
+    target = target.resolve() if target.exists() else target
+    with _CONFIG_LOCK:
+        value = json.loads(target.read_text())
+        for key, item in changes.items():
+            if key == 'discovery_enabled':
+                if type(item) is not bool:
+                    raise ValueError('发现开关必须是布尔值')
+            elif type(item) is not int:
+                raise ValueError('调度间隔必须是整数秒')
+            value[key] = item
+        temporary = target.with_suffix(target.suffix + '.new')
+        temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+        temporary.chmod(target.stat().st_mode & 0o777)
+        try:
+            checked = load(temporary)
+            temporary.replace(target)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+    return {key: checked[key] for key in SCHEDULE_KEYS}

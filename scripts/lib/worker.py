@@ -9,6 +9,8 @@ from .maintenance import recovery
 from .scheduling import prefilter, dispatch, pipeline, retirement
 from .collection import quality, admission
 from .probing.identity import probe as probe_identity
+from .tasks.discovery import run as discover_sources
+from .tasks.runner import Scheduler
 
 
 def paused(store):
@@ -33,6 +35,7 @@ def collect(store):
     store.put_meta('source_transport_v2', True)
     store.set_error('collection')
     print(f'收集完成：本批 {len(rows)} 个去重候选', flush=True)
+    return {'candidates': len(rows), 'sources': len(reports)}
 
 
 def cycle(store, config, stopped=None):
@@ -84,24 +87,6 @@ def identify(store, config, prober=probe_identity):
             'countries': dict(Counter(value['country'] for value in values))}
 
 
-def collecting(store, stopped):
-    while not stopped.is_set():
-        try:
-            if paused(store):
-                stopped.wait(30)
-                continue
-            config = settings.load()
-            due = store.meta('last_collection', 0) + config['source_interval']
-            if (due <= time.time() or store.meta('collection_error') is not None
-                    or not store.meta('source_transport_v2', False)):
-                collect(store)
-        except Exception as error:
-            store.set_error('collection', type(error).__name__)
-            traceback.print_exc()
-            print(f'收集失败：{type(error).__name__}', flush=True)
-        stopped.wait(60)
-
-
 def admitting(store, stopped):
     """独立消化首次候选，避免被主池慢检测阻塞。"""
     while not stopped.is_set():
@@ -116,26 +101,41 @@ def admitting(store, stopped):
         stopped.wait(1)
 
 
+def scheduled_jobs(store):
+    from .api.exports import export
+
+    def collection(_config):
+        if paused(store):
+            return {'skipped': 'paused'}
+        try:
+            return collect(store)
+        except Exception as error:
+            store.set_error('collection', type(error).__name__)
+            raise
+
+    return {
+        'source_collection': collection,
+        'source_discovery': lambda config: ({'skipped': 'paused'} if paused(store)
+                                             else discover_sources(store, config)),
+        'export_snapshot': lambda config: export(store, config) or {'exported': True},
+    }
+
+
 def maintain(store, stopped):
-    threading.Thread(target=collecting, args=(store, stopped), daemon=True).start()
     threading.Thread(target=admitting, args=(store, stopped), daemon=True).start()
     threading.Thread(target=recovery.recovering, args=(store, stopped, paused), daemon=True).start()
+    scheduler = Scheduler(store, stopped, scheduled_jobs(store))
+    threading.Thread(target=scheduler.run, daemon=True, name='internal-scheduler').start()
     config = {}
-    exported = 0
     while not stopped.is_set():
         try:
             if paused(store):
                 store.put_meta('heartbeat', {'time': time.time(), 'state': 'paused'})
                 stopped.wait(10)
                 continue
-            from .api.exports import export
             config = settings.load()
             retirement.cleanup(store)
             cycle(store, config, stopped)
-            # 导出是全表渲染加压缩，按间隔节流而不是每轮重写。
-            if time.time() - exported >= config['export_interval']:
-                export(store, config)
-                exported = time.time()
             store.set_error('check')
         except Exception as error:
             store.set_error('check', type(error).__name__)

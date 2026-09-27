@@ -13,6 +13,7 @@ const headings = {
   overview:['运行总览','代理池运行总览','查看可用出口、检测队列和服务健康状态。','OPERATIONS OVERVIEW'],
   proxies:['代理节点','节点状态与历史','查看每个出口的通用 HTTPS 连通性和复测记录。','PROXY INVENTORY'],
   sources:['来源监测','从公开来源到有效出口','跟踪来源响应、接收数量和实际验证结果。','SOURCE HEALTH'],
+  schedule:['调度设置','服务内部调度','设置来源发现、采集、复测和导出频率。','INTERNAL SCHEDULER'],
   usage:['接入中心','将代理池接入使用端','使用固定轮换端口、实时 API 或导出文件。','INTEGRATION CENTER']
 };
 
@@ -22,6 +23,20 @@ function switchView(next) {
   for (const name of Object.keys(headings)) $(`#${name}-view`).hidden = name !== view;
   document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('selected',button.dataset.view === view));
   ['#breadcrumb','#page-title','#page-description','#page-kicker'].forEach((id,i) => { $(id).textContent = headings[view][i]; });
+}
+
+function renderSchedule(data) {
+  const form = $('#schedule-form'), value = data.settings || {};
+  for (const name of ['source_interval','history_recheck_interval','recheck_interval','new_recheck_interval','export_interval']) form.elements[name].value = Math.round((value[name] || 0)/60);
+  form.elements.discovery_interval.value = Math.round((value.discovery_interval || 0)/3600);
+  form.elements.discovery_enabled.checked = value.discovery_enabled === true;
+  const names = {idle:'等待',running:'运行中',error:'上次失败',disabled:'已关闭'};
+  $('#schedule-tasks').innerHTML = (data.tasks || []).map(task => `<article><div><strong>${esc(task.label)}</strong><small>${names[task.status] || esc(task.status)} · 下次 ${relative(task.next_run)}</small></div><span>${task.error ? esc(task.error) : `上次完成 ${relative(task.last_finished)}`}</span></article>`).join('')+`<p class="candidate-note">待审核新来源：${Number(data.source_candidates?.pending || 0).toLocaleString()} 个。发现后不会直接进入正式采集。</p>`;
+}
+
+async function loadSchedule() {
+  try { renderSchedule(await getJSON('/api/schedule')); }
+  catch (error) { setText('#error',error.message); $('#error').hidden = false; }
 }
 
 function setText(id, value) { $(id).textContent = value; }
@@ -100,7 +115,7 @@ function setState(value) {
 }
 
 document.querySelectorAll('[data-state]').forEach(button => { button.onclick = () => setState(button.dataset.state); });
-document.querySelectorAll('[data-view]').forEach(button => { button.onclick = () => switchView(button.dataset.view); });
+document.querySelectorAll('[data-view]').forEach(button => { button.onclick = () => { switchView(button.dataset.view); if (button.dataset.view === 'schedule') loadSchedule(); }; });
 for (const key of ['grade','retry','country','protocol','project']) $(`#${key}`).onchange = event => { state[key] = event.target.value; state.page = 1; refresh(); };
 let debounce;
 $('#search').oninput = event => { clearTimeout(debounce); debounce = setTimeout(() => { state.search = event.target.value; state.page = 1; refresh(); },250); };
@@ -121,6 +136,15 @@ $('#power').onclick = async () => {
     if (!response.ok) throw new Error(`操作失败（${response.status}）`);
   } catch (error) { setText('#error',error.message); $('#error').hidden = false; }
   finally { $('#power').disabled = false; refresh(); }
+};
+$('#schedule-form').onsubmit = async event => {
+  event.preventDefault(); const form = event.currentTarget; const button = form.querySelector('button');
+  const minutes = name => Math.round(Number(form.elements[name].value)*60);
+  const data = {source_interval:minutes('source_interval'),discovery_interval:Math.round(Number(form.elements.discovery_interval.value)*3600),discovery_enabled:form.elements.discovery_enabled.checked,history_recheck_interval:minutes('history_recheck_interval'),recheck_interval:minutes('recheck_interval'),new_recheck_interval:minutes('new_recheck_interval'),export_interval:minutes('export_interval')};
+  button.disabled = true;
+  try { const response = await fetch('/api/schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); const value = await response.json(); if (!response.ok) throw new Error(value.error || `保存失败（${response.status}）`); renderSchedule(value); setText('#schedule-saved','已保存 · '+new Date().toLocaleTimeString('zh-CN',{hour12:false})); }
+  catch (error) { setText('#error',error.message); $('#error').hidden = false; }
+  finally { button.disabled = false; }
 };
 $('#rows').onclick = event => { const button = event.target.closest('[data-proxy]'); if (button) openDetail(button.dataset.proxy,state.project); };
 document.querySelectorAll('[data-copy-path]').forEach(button => { button.onclick = () => copyText(location.origin+button.dataset.copyPath); });

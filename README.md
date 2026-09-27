@@ -52,12 +52,19 @@ curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies/random?reach=both"
 
 原有 `/next` 和各种订阅地址继续保留，现有通用调用方无需修改。
 
+## 内部调度
+
+启动 `serve` 后，来源采集、新来源发现和导出快照由服务内部调度，无需再配置 cron 或系统定时任务。默认每小时搜索一次新来源，发现结果只进入本地候选库，不会自动成为正式采集来源。
+
+打开 Web 控制台的“调度设置”可修改发现、采集、历史恢复、节点复测和导出间隔。配置会原子写入本地 `config.json`，无需重启；任务的上次结果、错误和下次运行时间保存在 SQLite 中。
+
 常用地址：
 
 - Web 控制台：`http://127.0.0.1:21992/`
 - 标准随机领取：`/api/v1/proxies/random`
 - 标准分页列表：`/api/v1/proxies`
 - 标准状态：`/api/v1/stats`
+- 调度状态与设置：`/api/schedule`
 - 兼容领取：`/next`
 - 文本清单：`/connectivity/proxies.txt`
 - URI 清单：`/connectivity/proxies.uri`

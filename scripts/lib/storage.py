@@ -11,6 +11,7 @@ from .collection import admission
 from .policy import retries, unsupported
 from .probing import capabilities
 from .scheduling import grading, allocation, retirement
+from .tasks import state as task_state
 
 
 class Store:
@@ -45,6 +46,7 @@ class Store:
             retirement.initialize(db)
             retries.initialize(db)
             unsupported.initialize(db)
+            task_state.initialize(db)
             columns = {row[1] for row in db.execute('PRAGMA table_info(proxies)')}
             if 'exit_info' not in columns:
                 db.execute("ALTER TABLE proxies ADD COLUMN exit_info TEXT DEFAULT '{}'")

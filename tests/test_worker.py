@@ -53,39 +53,35 @@ class WorkerTest(unittest.TestCase):
     def test_collection_error_clears_after_success_and_history_survives_restart(self):
         with tempfile.TemporaryDirectory() as folder:
             store = Store(Path(folder) / 'pool.sqlite3')
-            stopped = Mock()
-            stopped.is_set.side_effect = [False, False, True]
-            observed = []
-            stopped.wait.side_effect = lambda _: observed.append(store.status(settings.load()))
+            job = worker.scheduled_jobs(store)['source_collection']
             with patch.object(worker.sources, 'collect', side_effect=[ValueError('test'), ([], [])]):
-                worker.collecting(store, stopped)
-            self.assertEqual(observed[0]['errors']['collection'], 'ValueError')
-            self.assertIsNone(observed[0]['last_errors']['collection']['recovered_at'])
-            self.assertIsNone(observed[1]['errors']['collection'])
-            history = observed[1]['last_errors']['collection']
+                with self.assertRaises(ValueError):
+                    job(settings.load())
+                failed = store.status(settings.load())
+                self.assertEqual(failed['errors']['collection'], 'ValueError')
+                self.assertIsNone(failed['last_errors']['collection']['recovered_at'])
+                job(settings.load())
+            self.assertIsNone(store.status(settings.load())['errors']['collection'])
+            history = store.status(settings.load())['last_errors']['collection']
             self.assertEqual(history['error'], 'ValueError')
             self.assertGreaterEqual(history['recovered_at'], history['time'])
             self.assertEqual(Store(store.path).status(settings.load())['last_errors']['collection'], history)
 
     def test_check_and_export_errors_clear_only_after_successful_iteration(self):
-        for stage in ('cycle', 'export'):
-            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as folder:
-                store = Store(Path(folder) / 'pool.sqlite3')
-                stopped = Mock()
-                stopped.is_set.side_effect = [False, False, True]
-                observed = []
-                stopped.wait.side_effect = lambda _: observed.append(store.status(settings.load()))
-                with patch.object(worker.threading, 'Thread'), \
-                        patch.object(worker, 'cycle') as cycle, \
-                        patch('lib.api.exports.export') as export:
-                    failing = cycle if stage == 'cycle' else export
-                    failing.side_effect = [ValueError('test'), None]
-                    worker.maintain(store, stopped)
-                self.assertEqual(observed[0]['errors']['checks'], 'ValueError')
-                self.assertIsNone(observed[1]['errors']['checks'])
-                history = observed[1]['last_errors']['checks']
-                self.assertEqual(history['error'], 'ValueError')
-                self.assertGreaterEqual(history['recovered_at'], history['time'])
+        with tempfile.TemporaryDirectory() as folder:
+            store = Store(Path(folder) / 'pool.sqlite3')
+            stopped = Mock()
+            stopped.is_set.side_effect = [False, False, True]
+            observed = []
+            stopped.wait.side_effect = lambda _: observed.append(store.status(settings.load()))
+            with patch.object(worker.threading, 'Thread'), patch.object(
+                    worker, 'cycle', side_effect=[ValueError('test'), None]):
+                worker.maintain(store, stopped)
+            self.assertEqual(observed[0]['errors']['checks'], 'ValueError')
+            self.assertIsNone(observed[1]['errors']['checks'])
+            history = observed[1]['last_errors']['checks']
+            self.assertEqual(history['error'], 'ValueError')
+            self.assertGreaterEqual(history['recovered_at'], history['time'])
 
     def test_legacy_error_recovers_without_inventing_failure_timestamp(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -99,15 +95,13 @@ class WorkerTest(unittest.TestCase):
             self.assertIsNone(status['last_errors']['collection']['time'])
             self.assertIsNotNone(status['last_errors']['collection']['recovered_at'])
 
-    def test_pending_collection_error_retries_before_regular_refresh_is_due(self):
+    def test_collection_job_is_independent_from_previous_refresh_time(self):
         with tempfile.TemporaryDirectory() as folder:
             store = Store(Path(folder) / 'pool.sqlite3')
             store.put_meta('last_collection', time.time())
             store.put_meta('collection_error', 'ValueError')
-            stopped = Mock()
-            stopped.is_set.side_effect = [False, False, True]
             with patch.object(worker.sources, 'collect', return_value=([], [])) as collect:
-                worker.collecting(store, stopped)
+                worker.scheduled_jobs(store)['source_collection'](settings.load())
             collect.assert_called_once()
             self.assertIsNone(store.status(settings.load())['errors']['collection'])
 
