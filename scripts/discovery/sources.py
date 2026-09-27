@@ -5,9 +5,10 @@ import re
 import urllib.parse
 import urllib.request
 from pathlib import Path
+from .auth import github_token
 
 API_ROOT = os.environ.get('PROXY_POOL_DISCOVERY_API', 'https://api.github.com').rstrip('/')
-REPOSITORY_SCAN_LIMIT = 6
+REPOSITORY_SCAN_LIMIT = 12
 QUERIES = ('free proxy list in:name,description,readme',
            'public http https proxy list in:name,description,readme',
            'socks4 socks5 proxy list in:name,description,readme',
@@ -25,7 +26,7 @@ EXCLUDED = re.compile(
 def get_json(url, opener=urllib.request.urlopen):
     headers = {'Accept': 'application/vnd.github+json',
                'User-Agent': 'proxy-pool-source-discovery'}
-    token = os.environ.get('GITHUB_TOKEN')
+    token = github_token()
     if token:
         headers['Authorization'] = 'Bearer ' + token
     request = urllib.request.Request(url, headers=headers)
