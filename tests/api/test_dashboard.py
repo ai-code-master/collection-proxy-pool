@@ -64,6 +64,12 @@ class DashboardTest(unittest.TestCase):
         self.assertEqual(self.get('/api/history?proxy='+self.url)['events'], [])
         self.assertEqual(self.get('/api/proxies?state=unverified')['total'], 1)
 
+    def test_detail_exposes_identified_exit_country(self):
+        self.store.geo(self.url, {'country': 'US', 'exit_ip': '1.1.1.1',
+                                  'exit_info': {'source': 'test'}})
+        detail = self.get('/api/history?proxy=' + self.url)['proxy']
+        self.assertEqual((detail['country'], detail['exit_ip']), ('US', '1.1.1.1'))
+
     def test_expiry_disabled_and_overview(self):
         self.record('available', time.time()-4000)
         self.assertEqual(self.get('/api/overview')['states']['expired'], 1)
@@ -108,6 +114,7 @@ class DashboardTest(unittest.TestCase):
     def test_static_and_invalid_queries(self):
         self.assertIn('采集代理池', self.get('/'))
         self.assertIn('refresh', self.get('/assets/app.js'))
+        self.assertIn('出口国家 / 地区', self.get('/assets/detail.js'))
         self.assertIn('禁止用途', self.get('/disclaimer'))
         self.assertEqual(response(self.store,self.config,'/assets/../config.json')[0],404)
         for path in ('/api/proxies?page=oops','/api/proxies?state=oops',

@@ -19,7 +19,8 @@ export async function openDetail(url, project) {
     const data = await getJSON('/api/history?'+new URLSearchParams({proxy:url,project}));
     if (request !== version || !dialog.open) return;
     const row = data.proxy;
-    const fields = [['调度等级',row.grade+' · '+row.grade_name],['复测队列',row.retry_name],['稳定计分',row.success_streak+'/3（两次计分至少间隔 5 分钟）'],['协议',row.protocol],['检测类型',row.project],['国内连通',row.domestic ? '可用 · '+Math.round(row.domestic_latency_ms)+' ms' : '不可用'],['国外连通',row.overseas ? '可用 · '+Math.round(row.overseas_latency_ms)+' ms' : '不可用'],['国家 / 地区',countryName(row.display_country)],['出口 IP',row.exit_ip || '未记录'],['首次收集',fullDate(row.first_seen)],['最近收集',fullDate(row.last_seen)],['最近检测',fullDate(row.checked_at)],['计划复测',fullDate(row.next_check)],['有效截止',fullDate(row.valid_until)],['HTTP 状态',row.http_status ?? '未记录']];
+    const exitCountry = row.country && row.country !== 'unknown' ? `${countryName(row.country)}（${row.country.toUpperCase()}）` : '未识别';
+    const fields = [['调度等级',row.grade+' · '+row.grade_name],['复测队列',row.retry_name],['稳定计分',row.success_streak+'/3（两次计分至少间隔 5 分钟）'],['协议',row.protocol],['检测类型',row.project],['国内连通',row.domestic ? '可用 · '+Math.round(row.domestic_latency_ms)+' ms' : '不可用'],['国外连通',row.overseas ? '可用 · '+Math.round(row.overseas_latency_ms)+' ms' : '不可用'],['出口国家 / 地区',exitCountry],['出口 IP',row.exit_ip || '未识别'],['首次收集',fullDate(row.first_seen)],['最近收集',fullDate(row.last_seen)],['最近检测',fullDate(row.checked_at)],['计划复测',fullDate(row.next_check)],['有效截止',fullDate(row.valid_until)],['HTTP 状态',row.http_status ?? '未记录']];
     const events = data.events, max = Math.max(1,...events.map(e => e.latency_ms || 0));
     const bars = [...events].reverse().map((e,i) => {
       const height = Math.max(4,(e.latency_ms || 0)/max*70);
