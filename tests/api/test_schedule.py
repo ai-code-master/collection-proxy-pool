@@ -47,6 +47,22 @@ class ScheduleTest(unittest.TestCase):
         value = state.snapshot(self.store, settings.load())
         self.assertEqual(value['source_candidates']['pending'], 1)
 
+    def test_rediscovery_requeues_old_rejection(self):
+        row = {'name': 'owner-repo-socks4', 'url': 'https://example.test/socks4.txt',
+               'repository': 'owner/repo', 'path': 'socks4.txt'}
+        with patch('lib.tasks.discovery.discover', return_value=[row]), \
+                patch('lib.tasks.discovery.time.time', return_value=200000):
+            discover(self.store, settings.load())
+        with self.store.write() as db:
+            db.execute('UPDATE source_candidates SET state=?,reviewed_at=?', ('rejected', 100000))
+        with patch('lib.tasks.discovery.discover', return_value=[row]), \
+                patch('lib.tasks.discovery.time.time', return_value=200001):
+            discover(self.store, settings.load())
+        with self.store.connect() as db:
+            state_value, reviewed = db.execute(
+                'SELECT state,reviewed_at FROM source_candidates').fetchone()
+        self.assertEqual((state_value, reviewed), ('pending', None))
+
     def test_schedule_update_is_atomic_and_validated(self):
         source = Path(__file__).resolve().parents[1] / 'fixtures/config.json'
         target = self.folder / 'config.json'
