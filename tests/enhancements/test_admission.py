@@ -24,9 +24,14 @@ class AdmissionTests(unittest.TestCase):
         rows = [dict(proxy=good, sources=['one']), dict(proxy=bad, sources=['one'])]
         self.assertEqual(admission.enqueue(self.store, rows), 2)
         unreachable = dict(state='unreachable', reason='tcp_prefilter:TimeoutError')
-        with patch.object(admission, 'probe', side_effect=lambda url, timeout: None if url == good else unreachable):
+        hosts = []
+        def probe(url, _timeout, host):
+            hosts.append(host)
+            return None if url == good else unreachable
+        with patch.object(admission, 'probe', side_effect=probe):
             result = admission.promote(self.store, self.config, threading.Event())
         self.assertEqual((result['promoted'], result['rejected']), (1, 1))
+        self.assertEqual(set(hosts), {'domestic.test'})
         with self.store.connect() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM proxies').fetchone()[0], 1)
             self.assertEqual(db.execute('SELECT COUNT(*) FROM candidate_queue').fetchone()[0], 0)

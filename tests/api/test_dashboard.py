@@ -75,6 +75,20 @@ class DashboardTest(unittest.TestCase):
         self.assertEqual(self.get('/api/proxies')['total'], 0)
         self.assertEqual(self.get('/api/proxies?state=disabled')['total'], 1)
 
+    def test_overview_reports_live_source_contribution(self):
+        self.store.ingest([{'proxy': self.url, 'sources': ['first']},
+                           {'proxy': 'socks5://1.1.1.1:1080', 'sources': ['second']}])
+        self.record('available')
+        self.store.put_meta('sources', [
+            {'name': 'first', 'http_status': 200, 'error': ''},
+            {'name': 'second', 'http_status': 500, 'error': 'HTTP 500'}])
+        server.reset_caches()
+        status = self.get('/api/overview')['status']
+        self.assertEqual(status['source_summary'], {'total': 2, 'healthy': 1, 'contributing': 1})
+        first = next(row for row in status['sources'] if row['name'] == 'first')
+        self.assertEqual((first['stored_candidates'], first['available'],
+                          first['contribution_percent']), (1, 1, 100.0))
+
     def test_legacy_seed_once_and_retention(self):
         self.record('available')
         with self.store.connect() as db:

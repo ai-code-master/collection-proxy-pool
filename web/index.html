@@ -71,11 +71,11 @@
       <div class="filter-controls"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="搜索代理或出口 IP" aria-label="搜索代理"></label><select id="grade"><option value="">所有等级</option><option value="A">A · 稳定</option><option value="B">B · 观察</option><option value="D">D · 待检测</option><option value="E">E · 重试</option></select><select id="country"><option value="">所有地区</option></select><select id="protocol"><option value="">所有协议</option><option value="http">HTTP</option><option value="socks5">SOCKS5</option></select><select id="project"><option value="connectivity">通用连通性</option></select></div>
     </div>
     <p id="grade-summary" class="grade-summary">等级用于调度，是否可用以状态为准。</p>
-    <div class="table-scroll"><table><thead><tr><th><button data-sort="address">代理地址 ↕</button></th><th><button data-sort="grade">调度等级 ↕</button></th><th>协议</th><th>连通范围</th><th><button data-sort="speed">响应耗时 ↕</button></th><th>状态</th><th><button data-sort="checked">最近检测 ↕</button></th><th>最近成功</th><th>最近失败</th><th><span class="sr-only">详情</span></th></tr></thead><tbody id="rows"><tr><td colspan="10" class="empty">正在读取代理池…</td></tr></tbody></table></div>
+    <div class="table-scroll"><table><thead><tr><th><button data-sort="address">代理地址 ↕</button></th><th><button data-sort="grade">调度等级 ↕</button></th><th>协议</th><th>国家 / 地区</th><th>连通范围</th><th><button data-sort="speed">响应耗时 ↕</button></th><th>状态</th><th><button data-sort="checked">最近检测 ↕</button></th><th>最近成功</th><th>最近失败</th><th><span class="sr-only">详情</span></th></tr></thead><tbody id="rows"><tr><td colspan="11" class="empty">正在读取代理池…</td></tr></tbody></table></div>
     <footer class="table-footer"><span id="page-label">—</span><div><button id="prev" class="page-button">←</button><span id="page-number">1</span><button id="next" class="page-button">→</button></div></footer>
   </section>
 
-  <section id="sources-view" class="panel" hidden><div class="panel-head"><div><h2>来源监测</h2><span>来源拉取成功后仍需逐个验证。</span></div><span id="source-updated"></span></div><div id="source-list" class="source-list"></div></section>
+  <section id="sources-view" class="panel" hidden><div class="panel-head"><div><h2>来源监测 · <b id="source-total">—</b></h2><span id="source-summary">来源拉取成功后仍需逐个验证。</span></div><span id="source-updated"></span></div><div id="source-list" class="source-list"></div></section>
   <section id="schedule-view" class="panel" hidden>
     <div class="panel-head"><div><h2>内部调度</h2><span>由服务自己定时执行，不依赖 cron 或系统定时任务。</span></div><span id="schedule-saved"></span></div>
     <form id="schedule-form" class="schedule-form">

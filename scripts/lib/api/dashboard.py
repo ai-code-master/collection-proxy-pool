@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 
 from ..settings import ROOT
 from ..scheduling import grading
+from ..collection import quality
 from ..policy import EFFECTIVE_STATE, state_args
 from ..policy.retries import NAMES as RETRY_NAMES
 from .metrics import scheduling
@@ -142,7 +143,18 @@ def overview(store, config):
                     latencies.append(latency)
     countries = [{'code': code, 'count': count} for code, count in
                  sorted(country_counts.items(), key=lambda item: item[1], reverse=True)]
-    return {'status': store.status(config), 'states': states, 'countries': countries, 'grades': grades,
+    status = store.status(config)
+    reports = quality.enrich(store, [dict(row) for row in status['sources']], config)
+    available = max(1, states.get('available', 0))
+    for report in reports:
+        report['contribution_percent'] = round(report['available'] * 100 / available, 1)
+    status['sources'] = reports
+    status['source_summary'] = {
+        'total': len(reports),
+        'healthy': sum(row.get('http_status') == 200 and not row.get('error') for row in reports),
+        'contributing': sum(row['available'] > 0 for row in reports),
+    }
+    return {'status': status, 'states': states, 'countries': countries, 'grades': grades,
             'available_sources': split,
             'scheduling': scheduling(store),
             'median_ms': round(statistics.median(latencies)) if latencies else None,

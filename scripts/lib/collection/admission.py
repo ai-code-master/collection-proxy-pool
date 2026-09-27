@@ -4,6 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..net import is_loopback_url
+from ..checks import primary_host
 from ..scheduling.prefilter import probe
 
 
@@ -57,9 +58,11 @@ def promote(store, config, stopped):
     if not rows:
         return {'screened': 0, 'promoted': 0, 'rejected': 0}
     passed, failed, interrupted = [], [], []
+    host = primary_host(config['profiles']['connectivity'])
 
     def check(row):
-        return row, 'stopped' if stopped.is_set() else probe(row['url'], config['prefilter_timeout'])
+        return row, 'stopped' if stopped.is_set() else probe(
+            row['url'], config['prefilter_timeout'], host)
 
     with ThreadPoolExecutor(max_workers=config['prefilter_workers']) as executor:
         jobs = [executor.submit(check, row) for row in rows]
