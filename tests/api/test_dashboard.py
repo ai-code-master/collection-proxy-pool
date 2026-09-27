@@ -39,6 +39,9 @@ class DashboardTest(unittest.TestCase):
         return value
 
     def test_filters_pagination_country_and_unknown_history(self):
+        self.assertEqual(self.get('/api/proxies?state=all&country=US')['total'], 0)
+        self.store.geo(self.url, {'country': 'US', 'exit_ip': '1.1.1.1', 'exit_info': {}})
+        server.reset_caches()
         data = self.get('/api/proxies?state=all&country=US')
         self.assertEqual(data['total'], 1)
         self.assertIsNone(data['items'][0]['last_success'])
@@ -73,9 +76,12 @@ class DashboardTest(unittest.TestCase):
     def test_expiry_disabled_and_overview(self):
         self.record('available', time.time()-4000)
         self.assertEqual(self.get('/api/overview')['states']['expired'], 1)
+        self.assertEqual(self.get('/api/overview')['countries'], [])
         self.record('available')
+        self.store.geo(self.url, {'country': 'US', 'exit_ip': '1.1.1.1', 'exit_info': {}})
         server.reset_caches()
         self.assertEqual(self.get('/api/overview')['median_ms'], 100)
+        self.assertEqual(self.get('/api/overview')['countries'], [{'code': 'US', 'count': 1}])
         self.config['profiles']['connectivity']['enabled'] = False
         server.reset_caches()
         self.assertEqual(self.get('/api/proxies')['total'], 0)

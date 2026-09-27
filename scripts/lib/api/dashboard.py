@@ -85,7 +85,7 @@ def listing(store, config, query):
             raise ValueError('未知等级')
         clauses.append('grade=?')
         filters.append(grade)
-    for key, column in [('country', 'display_country')]:
+    for key, column in [('country', 'country')]:
         if query.get(key, [''])[0]:
             clauses.append(f'{column}=?')
             filters.append(query[key][0])
@@ -101,7 +101,7 @@ def listing(store, config, query):
         filters.append(search)
     where = ' WHERE ' + ' AND '.join(clauses) if clauses else ''
     columns = {'speed': 'COALESCE(latency_ms,999999999)', 'checked': 'COALESCE(checked_at,0)',
-               'country': 'display_country', 'address': 'url', 'grade': 'grade'}
+               'country': 'country', 'address': 'url', 'grade': 'grade'}
     sort = columns.get(query.get('sort', ['speed'])[0], columns['speed'])
     order = 'DESC' if query.get('direction', ['asc'])[0] == 'desc' else 'ASC'
     with store.connect() as db:
@@ -133,11 +133,12 @@ def overview(store, config):
     split = {'clash': 0, 'public': 0}
     with store.connect() as db:
         for state, grade, country, latency, srcs in db.execute(
-                f'SELECT effective_state,grade,display_country,latency_ms,sources FROM ({sql})', args):
+                f'SELECT effective_state,grade,country,latency_ms,sources FROM ({sql})', args):
             states[state] = states.get(state, 0) + 1
             grades[grade] = grades.get(grade, 0) + 1
-            country_counts[country] = country_counts.get(country, 0) + 1
             if state == 'available':
+                if country and country != 'unknown':
+                    country_counts[country] = country_counts.get(country, 0) + 1
                 split['clash' if 'clash-free-http' in (srcs or '') else 'public'] += 1
                 if latency is not None:
                     latencies.append(latency)
