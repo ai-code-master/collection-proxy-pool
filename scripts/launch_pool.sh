@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-# Homebrew's Python launcher can detach the real interpreter from launchd.
-# The pool only needs the standard library, so use macOS's direct interpreter.
+# Prefer the project environment for optional Mihomo support. Fall back to
+# macOS's direct interpreter because Homebrew launchers can detach under launchd.
 unset __PYVENV_LAUNCHER__
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 PYTHON_BIN="$ROOT/.venv/bin/python"

@@ -8,7 +8,7 @@ __pycache__/
 /config.json
 /sources.json
 /mihomo.json
-/data/
+/data
 /.deploy-backups/
 /scripts/research/source_scout.py
 /scripts/research/proxy_source_scout.py
