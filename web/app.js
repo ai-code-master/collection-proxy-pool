@@ -27,9 +27,13 @@ function renderSchedule(data) {
   const form = $('#schedule-form'), value = data.settings || {};
   for (const name of ['source_interval','history_recheck_interval','recheck_interval','new_recheck_interval','export_interval']) form.elements[name].value = Math.round((value[name] || 0)/60);
   form.elements.discovery_interval.value = Math.round((value.discovery_interval || 0)/3600);
+  form.elements.source_review_interval.value = Math.round((value.source_review_interval || 0)/3600);
   form.elements.discovery_enabled.checked = value.discovery_enabled === true;
   const names = {idle:'等待',running:'运行中',error:'上次失败',disabled:'已关闭'};
-  $('#schedule-tasks').innerHTML = (data.tasks || []).map(task => `<article><div><strong>${esc(task.label)}</strong><small>${names[task.status] || esc(task.status)} · 下次 ${relative(task.next_run)}</small></div><span>${task.error ? esc(task.error) : `上次完成 ${relative(task.last_finished)}`}</span></article>`).join('')+`<p class="candidate-note">待审核新来源：${Number(data.source_candidates?.pending || 0).toLocaleString()} 个。发现后不会直接进入正式采集。</p>`;
+  $('#schedule-tasks').innerHTML = (data.tasks || []).map(task => `<article><div><strong>${esc(task.label)}</strong><small>${names[task.status] || esc(task.status)} · 下次 ${relative(task.next_run)}</small></div><span>${task.error ? esc(task.error) : `上次完成 ${relative(task.last_finished)}`}</span></article>`).join('')+`<p class="candidate-note">待审核新来源：${Number(data.source_candidates?.pending || 0).toLocaleString()} 个。通过质量门槛后自动接入正式采集。</p>`;
+  const states = {active:'已自动接入',pending:'等待复核',covered:'已有覆盖',rejected:'已拒绝'};
+  const reasons = {quality_gate_passed:'质量门槛通过',repository_already_configured:'仓库已配置',no_meaningful_novelty:'没有有效新增',unsupported_protocol:'协议不支持',download_failed:'下载失败，稍后重试',too_few_records:'有效记录太少',invalid_format:'格式不兼容',awaiting_rediscovery:'等待再次发现',insufficient_live_evidence:'连通证据不足'};
+  $('#source-reviews').innerHTML = '<h3>候选来源审核</h3>'+(data.source_reviews || []).map(row => { const r=row.review || {}; return `<article><div><strong>${esc(row.repository || row.name)}</strong><small>${reasons[r.reason] || '尚未审核'} · 发现 ${row.discoveries} 次</small></div><span class="review-state ${esc(row.state)}">${states[row.state] || esc(row.state)}</span><dl><div><dt>有效记录</dt><dd>${Number(r.records || 0).toLocaleString()}</dd></div><div><dt>库存新增</dt><dd>${Number(r.novel || 0).toLocaleString()}</dd></div><div><dt>已知可用</dt><dd>${Number(r.known_available || 0).toLocaleString()}</dd></div><div><dt>抽测通过</dt><dd>${Number(r.sample_available || 0)} / ${Number(r.sampled || 0)}</dd></div></dl></article>`; }).join('');
 }
 
 async function loadSchedule() {
@@ -140,7 +144,7 @@ $('#power').onclick = async () => {
 $('#schedule-form').onsubmit = async event => {
   event.preventDefault(); const form = event.currentTarget; const button = form.querySelector('button');
   const minutes = name => Math.round(Number(form.elements[name].value)*60);
-  const data = {source_interval:minutes('source_interval'),discovery_interval:Math.round(Number(form.elements.discovery_interval.value)*3600),discovery_enabled:form.elements.discovery_enabled.checked,history_recheck_interval:minutes('history_recheck_interval'),recheck_interval:minutes('recheck_interval'),new_recheck_interval:minutes('new_recheck_interval'),export_interval:minutes('export_interval')};
+  const data = {source_interval:minutes('source_interval'),discovery_interval:Math.round(Number(form.elements.discovery_interval.value)*3600),source_review_interval:Math.round(Number(form.elements.source_review_interval.value)*3600),discovery_enabled:form.elements.discovery_enabled.checked,history_recheck_interval:minutes('history_recheck_interval'),recheck_interval:minutes('recheck_interval'),new_recheck_interval:minutes('new_recheck_interval'),export_interval:minutes('export_interval')};
   button.disabled = true;
   try { const response = await fetch('/api/schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); const value = await response.json(); if (!response.ok) throw new Error(value.error || `保存失败（${response.status}）`); renderSchedule(value); setText('#schedule-saved','已保存 · '+new Date().toLocaleTimeString('zh-CN',{hour12:false})); }
   catch (error) { setText('#error',error.message); $('#error').hidden = false; }

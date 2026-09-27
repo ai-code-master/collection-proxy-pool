@@ -77,6 +77,7 @@ def discover(limit=20, getter=get_json):
 
 def write_catalog(path, candidates):
     target = Path(path)
+    target = target.resolve() if target.exists() else target
     try:
         catalog = json.loads(target.read_text())
         catalog = catalog if isinstance(catalog, dict) else {}
@@ -86,5 +87,7 @@ def write_catalog(path, candidates):
     catalog.update({row['name']: row['url'] for row in candidates})
     temporary = target.with_suffix(target.suffix + '.new')
     temporary.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + '\n')
+    if target.exists():
+        temporary.chmod(target.stat().st_mode & 0o777)
     temporary.replace(target)
     return len(catalog) - before

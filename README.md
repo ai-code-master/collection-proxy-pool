@@ -1,5 +1,10 @@
 # 通用采集代理池
 
+> [!TIP]
+> ⭐ **觉得项目有帮助？欢迎在 [GitHub](https://github.com/ai-code-master/collection-proxy-pool) 点一个 Star，帮助更多人发现它。下载和使用始终免费，Star 不是前置条件。**
+>
+> ⭐ **If this project helps you, please [star it on GitHub](https://github.com/ai-code-master/collection-proxy-pool) so more people can discover it. Downloading and using it is always free—starring is appreciated, never required.**
+
 这是一个可自部署的代理来源发现、采集、连通性检测、历史复测和订阅服务。仓库只发布软件，不包含代理节点、代理来源、连通性检测目标、运行数据库或日志。发现结果和用户配置只保存在本地，不属于发布包。
 
 这是一个只负责“代理是否能通”的独立代理池。它不判断任何业务平台的限流或风控，也不接收下游业务反馈来改变代理状态。
@@ -53,9 +58,9 @@ curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies/random?reach=both"
 
 ## 内部调度
 
-启动 `serve` 后，来源采集、新来源发现和导出快照由服务内部调度，无需再配置 cron 或系统定时任务。默认每小时搜索一次新来源，发现结果只进入本地候选库，不会自动成为正式采集来源。
+启动 `serve` 后，来源采集、新来源发现、候选来源审核和导出快照由服务内部调度，无需再配置 cron 或系统定时任务。默认每小时搜索并审核一次新来源；候选只有通过重复发现、下载、格式、协议、新增量和连通抽测门槛后，才会原子写入私有 `sources.json`，随后自动进入正式采集。
 
-打开 Web 控制台的“调度设置”可修改发现、采集、历史恢复、节点复测和导出间隔。配置会原子写入本地 `config.json`，无需重启；任务的上次结果、错误和下次运行时间保存在 SQLite 中。
+打开 Web 控制台的“调度设置”可修改发现、自动审核、采集、历史恢复、节点复测和导出间隔，并查看每个候选的审核指标与接入结果。配置会原子写入本地 `config.json`，无需重启；任务的上次结果、错误和下次运行时间保存在 SQLite 中。
 
 常用地址：
 

@@ -16,7 +16,8 @@ SOURCES = Path(os.environ.get('PROXY_POOL_SOURCES',
                LOCAL_SOURCES if LOCAL_SOURCES.exists() else ROOT / 'examples/sources.json')).expanduser()
 PROFILE = 'connectivity'
 PROFILES = (PROFILE,)
-SCHEDULE_KEYS = ('source_interval', 'discovery_interval', 'discovery_enabled',
+SCHEDULE_KEYS = ('source_interval', 'discovery_interval', 'source_review_interval',
+                 'discovery_enabled',
                  'history_recheck_interval', 'recheck_interval',
                  'new_recheck_interval', 'export_interval')
 _CONFIG_LOCK = threading.Lock()
@@ -34,7 +35,11 @@ def load(path=None):
                     history_recheck_workers=4, history_recheck_batch=100,
                     history_recheck_interval=300, max_failure_retry_ratio=.25,
                     api_rate_limit_per_minute=120, discovery_interval=3600,
-                    discovery_enabled=True, discovery_limit=20)
+                    discovery_enabled=True, discovery_limit=20,
+                    source_review_interval=3600, source_review_batch=20,
+                    source_review_workers=4, source_review_sample_size=8,
+                    source_review_min_records=20, source_review_min_novel=10,
+                    source_review_min_success=1)
     for key, value in defaults.items():
         config.setdefault(key, value)
     if not 60 <= config['export_interval'] <= 3600:
@@ -43,6 +48,14 @@ def load(path=None):
             or type(config['discovery_enabled']) is not bool
             or not 1 <= config['discovery_limit'] <= 100):
         raise ValueError('新来源发现间隔须在 1 小时至 7 天之间')
+    if (not 3600 <= config['source_review_interval'] <= 604800
+            or not 1 <= config['source_review_batch'] <= 100
+            or not 1 <= config['source_review_workers'] <= 8
+            or not 1 <= config['source_review_sample_size'] <= 20
+            or not 10 <= config['source_review_min_records'] <= 1000
+            or not 1 <= config['source_review_min_novel'] <= config['source_review_min_records']
+            or not 1 <= config['source_review_min_success'] <= 5):
+        raise ValueError('来源审核参数超出安全范围')
     if not 1 <= config['prefilter_workers'] <= 64 or not 1 <= config['prefilter_timeout'] <= 5:
         raise ValueError('端口预筛并发 1–64，超时 1–5 秒')
     if (not 1000 <= config['candidate_queue_limit'] <= 100000

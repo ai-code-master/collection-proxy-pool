@@ -10,6 +10,7 @@ from .scheduling import prefilter, dispatch, pipeline, retirement
 from .collection import quality, admission
 from .probing.identity import probe as probe_identity
 from .tasks.discovery import run as discover_sources
+from .tasks.review import run as review_sources
 from .tasks.runner import Scheduler
 
 
@@ -117,6 +118,8 @@ def scheduled_jobs(store):
         'source_collection': collection,
         'source_discovery': lambda config: ({'skipped': 'paused'} if paused(store)
                                              else discover_sources(store, config)),
+        'source_review': lambda config: ({'skipped': 'paused'} if paused(store)
+                                          else review_sources(store, config)),
         'export_snapshot': lambda config: export(store, config) or {'exported': True},
     }
 

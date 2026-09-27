@@ -5,6 +5,7 @@ import time
 SPECS = {
     'source_collection': ('公开来源采集', 'source_interval', None),
     'source_discovery': ('新来源发现', 'discovery_interval', 'discovery_enabled'),
+    'source_review': ('候选来源自动审核', 'source_review_interval', 'discovery_enabled'),
     'export_snapshot': ('导出快照', 'export_interval', None),
 }
 
@@ -19,10 +20,16 @@ def initialize(db):
         CREATE TABLE IF NOT EXISTS source_candidates(
             url TEXT PRIMARY KEY, name TEXT NOT NULL, repository TEXT,
             path TEXT, first_seen REAL NOT NULL, last_seen REAL NOT NULL,
-            discoveries INTEGER NOT NULL DEFAULT 1, state TEXT NOT NULL DEFAULT 'pending');
+            discoveries INTEGER NOT NULL DEFAULT 1, state TEXT NOT NULL DEFAULT 'pending',
+            reviewed_at REAL,review TEXT NOT NULL DEFAULT '{}');
         CREATE INDEX IF NOT EXISTS source_candidate_state
             ON source_candidates(state,last_seen DESC);
     ''')
+    columns = {row[1] for row in db.execute('PRAGMA table_info(source_candidates)')}
+    if 'reviewed_at' not in columns:
+        db.execute('ALTER TABLE source_candidates ADD COLUMN reviewed_at REAL')
+    if 'review' not in columns:
+        db.execute("ALTER TABLE source_candidates ADD COLUMN review TEXT NOT NULL DEFAULT '{}'")
 
 
 def sync(store, config, now=None):
@@ -78,8 +85,15 @@ def snapshot(store, config):
         row['label'] = SPECS[row['name']][0]
         row['enabled'] = bool(row['enabled'])
         row['result'] = json.loads(row['result']) if row['result'] else None
-    keys = ('source_interval', 'discovery_interval', 'discovery_enabled',
+    keys = ('source_interval', 'discovery_interval', 'source_review_interval',
+            'discovery_enabled',
             'history_recheck_interval', 'recheck_interval',
             'new_recheck_interval', 'export_interval')
+    with store.connect() as db:
+        reviews = [dict(row) for row in db.execute('''SELECT name,repository,state,
+            discoveries,reviewed_at,review FROM source_candidates
+            ORDER BY COALESCE(reviewed_at,last_seen) DESC LIMIT 40''')]
+    for row in reviews:
+        row['review'] = json.loads(row['review'] or '{}')
     return {'settings': {key: config[key] for key in keys}, 'tasks': rows,
-            'source_candidates': counts}
+            'source_candidates': counts, 'source_reviews': reviews}
