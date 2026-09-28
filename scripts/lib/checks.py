@@ -34,18 +34,24 @@ def probe_region(proxy, entries):
     return last
 
 
-def check(proxy, profile, target):
-    if profile != 'connectivity':
-        raise ValueError('当前只支持通用连通性检测')
-    started = time.time()
-    capabilities = {region: probe_region(proxy, target['targets'][region]) for region in REGIONS}
+def compose(capabilities, started=None, identity=None):
+    started = time.time() if started is None else started
     states = {value['state'] for value in capabilities.values()}
     successes = [value for value in capabilities.values() if value['state'] == 'available']
     state = 'auth_required' if 'auth_required' in states else 'available' if successes else 'unreachable'
     reason = '+'.join(region for region in REGIONS if capabilities[region]['state'] == 'available') or state
     representative = min(successes or capabilities.values(), key=lambda value: value['latency_ms'])
-    identity = probe_identity(proxy, target.get('identity_targets', ())) if successes else None
     return {'state': state, 'reason': reason, 'http_status': representative['http_status'],
             'checked_at': time.time(), 'started_at': started,
             'latency_ms': representative['latency_ms'], 'capabilities': capabilities,
             'identity': identity}
+
+
+def check(proxy, profile, target):
+    if profile != 'connectivity':
+        raise ValueError('当前只支持通用连通性检测')
+    started = time.time()
+    capabilities = {region: probe_region(proxy, target['targets'][region]) for region in REGIONS}
+    successes = any(value['state'] == 'available' for value in capabilities.values())
+    identity = probe_identity(proxy, target.get('identity_targets', ())) if successes else None
+    return compose(capabilities, started, identity)

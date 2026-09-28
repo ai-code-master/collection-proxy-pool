@@ -27,17 +27,17 @@ class WorkerTest(unittest.TestCase):
             barrier = threading.Barrier(4)
             def check(*args):
                 barrier.wait(timeout=3)
-                return {'state': 'unreachable', 'reason': 'test', 'checked_at': time.time(),
+                return {'state': 'unreachable', 'reason': 'test', 'endpoint': 'test',
                         'http_status': 461, 'latency_ms': 1}
             config = settings.load()
             config['workers'] = 4
             config['probe_interval'] = 0  # 无需等待真实发起间隔，独立测试四槽位及冷却。
             with patch.object(worker.prefilter, 'probe', return_value=None), \
-                    patch.object(worker.checks, 'check', side_effect=check) as checker:
+                    patch.object(worker.checks, 'probe_region', side_effect=check) as checker:
                 result = worker.cycle(store, config, NoWait())
             self.assertEqual(result['tested'], 8)
-            self.assertEqual(checker.call_count, 8)
-            with patch.object(worker.checks, 'check') as checker:
+            self.assertEqual(checker.call_count, 16)
+            with patch.object(worker.checks, 'probe_region') as checker:
                 result = worker.cycle(Store(store.path), settings.load(), NoWait())
             self.assertEqual(result['tested'], 0)
             checker.assert_not_called()

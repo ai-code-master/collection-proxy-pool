@@ -28,6 +28,15 @@ class CheckTest(unittest.TestCase):
         self.assertEqual((result['state'], result['endpoint']), ('available', entries[1]['url']))
         self.assertEqual(fetch.call_count, 2)
 
+    def test_region_stops_after_primary_success(self):
+        entries = [{'url': 'https://one.test/generate_204', 'status': 204},
+                   {'url': 'https://two.test/generate_204', 'status': 204}]
+        reply = dict(status=204, error='', body='', latency_ms=10)
+        with patch.object(checks, 'fetch', return_value=reply) as fetch:
+            result = checks.probe_region('http://8.8.8.8:80', entries)
+        self.assertEqual((result['state'], result['endpoint']), ('available', entries[0]['url']))
+        fetch.assert_called_once()
+
     def test_untrusted_proxy_addresses(self):
         for value in ('http://127.0.0.1:80', 'http://10.0.0.1:80', 'http://[::1]:80',
                       'http://169.254.169.254:80', 'http://example.org:80',

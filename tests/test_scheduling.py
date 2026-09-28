@@ -33,7 +33,7 @@ class SchedulingTest(unittest.TestCase):
     def test_closed_ports_never_call_platform_or_become_available(self):
         self.items(12)
         with patch.object(prefilter, 'probe', side_effect=lambda *_: self.result()), \
-                patch.object(worker.checks, 'check') as checker:
+                patch.object(worker.checks, 'probe_region') as checker:
             result = worker.cycle(self.store, self.config)
         checker.assert_not_called()
         self.assertEqual((result['tested'], result['prefilter_failed'], result['connectivity_checked']), (12,12,0))

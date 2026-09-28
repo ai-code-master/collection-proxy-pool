@@ -56,7 +56,7 @@ class ProtocolTests(unittest.TestCase):
             context.__enter__=Mock(return_value=connection)
             context.__exit__=Mock(return_value=False)
             with patch('lib.scheduling.prefilter.socket.create_connection',return_value=context), \
-                    patch.object(worker.checks,'check') as checker:
+                    patch.object(worker.checks,'probe_region') as checker:
                 result=worker.cycle(store,settings.load())
             checker.assert_not_called()
             self.assertEqual(result['prefilter_failed'],1)

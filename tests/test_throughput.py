@@ -28,6 +28,10 @@ class ThroughputTest(unittest.TestCase):
         self.store.ingest([{'proxy':f'http://8.8.4.{i}:80'} for i in range(1,count+1)])
         return [(r,'connectivity',self.target) for r in self.store.due('connectivity',self.target['fingerprint'],count)]
 
+    def capability(self,state='available'):
+        return dict(state=state,http_status=200 if state=='available' else 0,
+                    latency_ms=1,reason='test',endpoint='https://example.test')
+
     def test_twelve_slots_used_without_exceeding_limit(self):
         self.config['workers']=12
         barrier=threading.Barrier(12)
@@ -49,10 +53,9 @@ class ThroughputTest(unittest.TestCase):
     def test_available_result_is_recorded(self):
         self.items(6)
         def check(*_):
-            return dict(state='available',http_status=200,checked_at=time.time(),
-                        latency_ms=1,reason='matched_product_id')
+            return self.capability()
         with patch.object(worker.prefilter,'probe',return_value=None), \
-                patch.object(worker.checks,'check',side_effect=check):
+                patch.object(worker.checks,'probe_region',side_effect=check):
             result=worker.cycle(self.store,self.config)
         self.assertEqual(result['connectivity_checked'],6)
         self.assertEqual(len(self.store.available('connectivity',self.target['fingerprint'])),6)
@@ -68,10 +71,9 @@ class ThroughputTest(unittest.TestCase):
             return None
         def check(*_):
             business_started.set()
-            return dict(state='available',http_status=200,checked_at=time.time(),
-                        latency_ms=1,reason='test')
+            return self.capability()
         with patch.object(worker.prefilter,'probe',side_effect=probe), \
-                patch.object(worker.checks,'check',side_effect=check):
+                patch.object(worker.checks,'probe_region',side_effect=check):
             result=worker.cycle(self.store,self.config)
         self.assertEqual(result['connectivity_checked'],3)
         self.assertEqual(delayed,[])
@@ -86,7 +88,7 @@ class ThroughputTest(unittest.TestCase):
             on_ready(items[0])
             return items,0
         with patch.object(worker.prefilter,'screen',side_effect=screen), \
-                patch.object(worker.checks,'check') as checker:
+                patch.object(worker.checks,'probe_region') as checker:
             result=worker.cycle(self.store,self.config)
         checker.assert_not_called()
         self.assertEqual(result['connectivity_checked'],0)
@@ -94,14 +96,16 @@ class ThroughputTest(unittest.TestCase):
 
     def test_inflight_success_does_not_erase_newer_failure(self):
         self.items(1)
-        def check(url,platform,target):
-            self.store.record(url,platform,target['fingerprint'],
+        recorded=[]
+        def check(url,*_):
+            if not recorded:
+                recorded.append(url)
+                self.store.record(url,'connectivity',self.target['fingerprint'],
                               dict(state='unreachable',http_status=0,checked_at=time.time(),
                                    latency_ms=1,reason='concurrent_probe'),self.config)
-            return dict(state='available',http_status=200,checked_at=time.time(),
-                        latency_ms=1,reason='test')
+            return self.capability()
         with patch.object(worker.prefilter,'probe',return_value=None), \
-                patch.object(worker.checks,'check',side_effect=check):
+                patch.object(worker.checks,'probe_region',side_effect=check):
             worker.cycle(self.store,self.config)
         self.assertEqual(self.store.records()[0]['state'],'unreachable')
 

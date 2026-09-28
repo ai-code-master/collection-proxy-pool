@@ -2,6 +2,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from urllib.parse import urlsplit
 from unittest.mock import patch
 
 from lib import settings
@@ -31,7 +32,9 @@ class AdmissionTests(unittest.TestCase):
         with patch.object(admission, 'probe', side_effect=probe):
             result = admission.promote(self.store, self.config, threading.Event())
         self.assertEqual((result['promoted'], result['rejected']), (1, 1))
-        self.assertEqual(set(hosts), {'domestic.test'})
+        expected = urlsplit(self.config['profiles']['connectivity']['targets']
+                            ['domestic'][0]['url']).hostname
+        self.assertEqual(set(hosts), {expected})
         with self.store.connect() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM proxies').fetchone()[0], 1)
             self.assertEqual(db.execute('SELECT COUNT(*) FROM candidate_queue').fetchone()[0], 0)

@@ -70,22 +70,11 @@ def cycle(store, config, stopped=None):
                 max_retry_ratio=config['max_failure_retry_ratio']))
     started = time.monotonic()
 
-    def run(item):
-        row, profile, target = item
-        if stopped.is_set() or store.meta('pause:' + profile, 0) > time.time():
-            return None
-        if not store.needs_check(row['url'], profile, target['fingerprint']):
-            return None
-        started_at = time.time()
-        result = checks.check(row['url'], profile, target)
-        result['started_at'] = started_at
-        saved = store.record(row['url'], profile, target['fingerprint'], result, config)
-        return row['url'], profile, result['state'] if saved else 'superseded'
-
-    checked, rejected = pipeline.run(selected, store, config, stopped, run)
+    checked, rejected, staged = pipeline.run(selected, store, config, stopped)
     result = {'finished_at': time.time(), 'tested': rejected + checked, 'selected': len(selected),
               'prefilter_failed': rejected, 'connectivity_checked': checked,
               'grades_selected': dict(Counter(row.get('grade', 'D') for row, _, _ in selected)),
+              'pipeline': staged['plan'],
               'elapsed_seconds': round(time.monotonic()-started, 2)}
     store.put_meta('last_cycle', result)
     store.put_meta('heartbeat', {'time': time.time(), 'state': 'waiting'})

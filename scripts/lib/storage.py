@@ -182,4 +182,6 @@ class Store:
                 'errors': {'collection': self.meta('collection_error'), 'checks': self.meta('check_error')},
                 'last_errors': {'collection': self.meta('last_collection_error'), 'checks': self.meta('last_check_error')},
                 'last_collection': self.meta('last_collection', 0), 'clash_exit': clash_exit(),
-                'last_cycle': self.meta('last_cycle', {}), 'retirement': self.meta('retirement_last', {})}
+                'last_cycle': self.meta('last_cycle', {}),
+                'pipeline': self.meta('pipeline_tuning', {}),
+                'retirement': self.meta('retirement_last', {})}
