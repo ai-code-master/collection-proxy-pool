@@ -29,30 +29,47 @@ def select(db, platform, target, limit, now, quotas=None, max_retry_ratio=None):
         ORDER BY grade,(retry_tier='cold'),rn''',
         args+[max(1,limit//20),limit]).fetchall()
     queues={grade:deque() for grade in QUOTAS}
+    cold=deque()
     for row in rows:
-        queues[row['grade']].append(dict(row))
+        value=dict(row)
+        (cold if value['retry_tier']=='cold' else queues[value['grade']]).append(value)
     budget={grade:max(1 if limit>=5 else 0,int(limit*quotas[grade]/100)) for grade in QUOTAS}
     while sum(budget.values())>limit:
         largest=max(budget,key=budget.get)
         budget[largest]-=1
     chosen={grade:deque() for grade in QUOTAS}
+
+    def move(source,destination,count):
+        for _ in range(min(count,len(source))):
+            destination.append(source.popleft())
+
+    cold_quota=max(1,limit//20)
+    cold_selected=min(cold_quota,budget['E'],len(cold))
     for grade in QUOTAS:
-        for _ in range(min(budget[grade],len(queues[grade]))):
-            chosen[grade].append(queues[grade].popleft())
+        if grade=='E':
+            move(cold,chosen[grade],cold_selected)
+            move(queues[grade],chosen[grade],budget[grade]-cold_selected)
+        else:
+            move(queues[grade],chosen[grade],budget[grade])
+    retry_cap=limit if max_retry_ratio is None else max(1,int(limit*max_retry_ratio))
+    if len(chosen['E'])>retry_cap:
+        chosen['E']=deque(list(chosen['E'])[:retry_cap])
+        cold_selected=sum(row['retry_tier']=='cold' for row in chosen['E'])
     remaining=limit-sum(map(len,chosen.values()))
-    if max_retry_ratio is not None:
-        retry_cap=max(1, int(limit*max_retry_ratio))
-        if len(chosen['E']) > retry_cap:
-            remaining += len(chosen['E']) - retry_cap
-            chosen['E']=deque(list(chosen['E'])[:retry_cap])
-        # E 类只允许使用明确保留的名额，空出的名额给 A/B/D 类复用。
-        queues['E']=deque(list(queues['E'])[:max(0, retry_cap-len(chosen['E']))])
     fill_grades = [grade for grade in QUOTAS
                    if max_retry_ratio is None or grade != 'E']
     for grade in fill_grades:
         take=min(remaining,len(queues[grade]))
-        chosen[grade].extend(queues[grade].popleft() for _ in range(take))
+        move(queues[grade],chosen[grade],take)
         remaining-=take
+    # 高优先级队列为空时，失败节点最多借用到配置上限；冷队列固定获得 5%。
+    retry_room=max(0,retry_cap-len(chosen['E']))
+    take=min(remaining,retry_room,max(0,cold_quota-cold_selected),len(cold))
+    move(cold,chosen['E'],take)
+    remaining-=take
+    retry_room-=take
+    take=min(remaining,retry_room,len(queues['E']))
+    move(queues['E'],chosen['E'],take)
     # 交错提交，避免重试名额虽然分到了却总等到整批末尾。
     rows=[]
     while any(chosen.values()):

@@ -67,6 +67,24 @@ class RetryTests(unittest.TestCase):
         picked = self.store.due('connectivity', self.target, 200, self.now)
         self.assertEqual(Counter(row['retry_tier'] for row in picked)['cold'], 10)
 
+    def test_failed_queue_borrows_to_cap_and_reserves_cold_slots(self):
+        with self.store.connect() as db:
+            db.execute('DELETE FROM proxies')
+            for tier in ('retry','cold'):
+                for i in range(1,101):
+                    url=f'http://{8 if tier=="retry" else 9}.8.4.{i}:80'
+                    db.execute('INSERT INTO proxies(url,first_seen,last_seen) VALUES(?,?,?)',
+                               (url,self.now,self.now))
+                    db.execute('INSERT INTO checks VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                               (url,'connectivity','unreachable',self.now-1,0,self.now-1,
+                                5,0,1,self.target,'test'))
+                    db.execute('INSERT INTO retry_health VALUES(?,?,?,?,?,?,?)',
+                               (url,'connectivity',self.target,0,self.now-86400,5,tier))
+        picked=self.store.due('connectivity',self.target,200,self.now,
+                              max_retry_ratio=.25)
+        tiers=Counter(row['retry_tier'] for row in picked)
+        self.assertEqual((len(picked),tiers['retry'],tiers['cold']),(50,40,10))
+
     def test_disappeared_failed_source_archives_without_recent_probe_and_restores(self):
         with self.store.connect() as db:
             db.execute('UPDATE proxies SET last_seen=?', (self.now-8*86400,))
