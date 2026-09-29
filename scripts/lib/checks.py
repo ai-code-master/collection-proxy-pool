@@ -1,4 +1,4 @@
-"""用国内、国外小响应 HTTPS 端点验证代理连通性。"""
+"""任意小响应 HTTPS 端点成功即可确认代理可用。"""
 import time
 from urllib.parse import urlsplit
 
@@ -6,6 +6,7 @@ from .net import fetch
 from .probing.identity import probe as probe_identity
 
 REGIONS = ('domestic', 'overseas')
+MAX_SITES = 3
 
 
 def primary_host(target):
@@ -34,12 +35,31 @@ def probe_region(proxy, entries):
     return last
 
 
+def probe_any(proxy, target):
+    """交错尝试少量站点，任意一个成功或要求认证即停止。"""
+    groups, sites = target['targets'], []
+    for index in range(max(map(len, groups.values()))):
+        for region in REGIONS:
+            if index < len(groups[region]):
+                sites.append((region, groups[region][index]))
+    if not sites:
+        raise ValueError('未配置连通性测试站')
+    capabilities = {}
+    for region, entry in sites[:MAX_SITES]:
+        value = probe_region(proxy, (entry,))
+        capabilities[region] = value
+        if value['state'] in ('available', 'auth_required'):
+            break
+    return capabilities
+
+
 def compose(capabilities, started=None, identity=None):
     started = time.time() if started is None else started
     states = {value['state'] for value in capabilities.values()}
     successes = [value for value in capabilities.values() if value['state'] == 'available']
     state = 'auth_required' if 'auth_required' in states else 'available' if successes else 'unreachable'
-    reason = '+'.join(region for region in REGIONS if capabilities[region]['state'] == 'available') or state
+    reason = '+'.join(region for region in REGIONS
+                      if capabilities.get(region, {}).get('state') == 'available') or state
     representative = min(successes or capabilities.values(), key=lambda value: value['latency_ms'])
     return {'state': state, 'reason': reason, 'http_status': representative['http_status'],
             'checked_at': time.time(), 'started_at': started,
@@ -51,7 +71,7 @@ def check(proxy, profile, target):
     if profile != 'connectivity':
         raise ValueError('当前只支持通用连通性检测')
     started = time.time()
-    capabilities = {region: probe_region(proxy, target['targets'][region]) for region in REGIONS}
+    capabilities = probe_any(proxy, target)
     successes = any(value['state'] == 'available' for value in capabilities.values())
     identity = probe_identity(proxy, target.get('identity_targets', ())) if successes else None
     return compose(capabilities, started, identity)

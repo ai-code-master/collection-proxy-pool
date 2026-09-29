@@ -8,11 +8,11 @@
 <p><strong>警告：</strong>公共代理不可信，仅限合法授权用途。请先阅读<a href="/disclaimer">完整免责声明</a>。</p>
 <h2>API 领取</h2>
 <pre><code>curl --noproxy '*' 'http://&lt;部署机地址&gt;:21992/api/v1/proxies/random'</code></pre>
-<p><code>reach</code> 支持 <code>any</code>、<code>domestic</code>、<code>overseas</code>、<code>both</code>。</p>
+<p>默认使用 <code>reach=any</code>。区域参数只筛选最近实际命中过相应检测目标的记录。</p>
 <p>返回的是具体代理 URI。普通 HTTP/SOCKS5 使用原地址，Mihomo 节点使用部署机上对应的独立端口，不提供统一轮换入口。</p>
 <h2>导出</h2>
 <ul><li><code>/connectivity/proxies.txt</code></li><li><code>/connectivity/proxies.uri</code></li><li><code>/connectivity/proxies.base64</code></li><li><code>/connectivity/proxies.csv</code></li><li><code>/connectivity/records.json</code></li><li><code>/connectivity/clash.yaml</code></li></ul>
 <h2>检测</h2>
-<p>国内、国外检测目标与可选的出口识别目标全部由部署者自行配置。发布包不内置任何第三方地址。</p>
+<p>代理先经过 TCP/协议预筛，再最多尝试 3 个 HTTPS 目标；任意一个成功即停止。ping 或端口开放不等同于代理可用。检测目标与可选的出口识别目标全部由部署者自行配置。</p>
 <p>业务站点的账号风控、限流和 Cookie 状态由使用端自行管理。</p>
 </main></body></html>

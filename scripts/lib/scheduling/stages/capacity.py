@@ -38,15 +38,15 @@ def choose(store, config, target):
     interval = config['probe_interval']
     reason = 'balanced'
     if pressure['load_ratio'] >= 1.5 or pressure['fd_ratio'] >= .7:
-        workers, interval, reason = max(2, base // 2), max(1, interval), 'resource_pressure'
+        workers, interval, reason = max(4, base), max(1, interval), 'resource_pressure'
     elif backlog >= config['batch_size'] * 4:
-        workers, interval, reason = maximum, max(.35, interval / 6), 'deep_backlog'
+        workers, interval, reason = min(48, maximum * 2), max(.35, interval / 6), 'deep_backlog'
     elif backlog >= config['batch_size']:
         workers, interval, reason = min(maximum, base + max(2, base // 2)), max(.5, interval / 2), 'backlog'
     else:
         workers, interval = base, max(.5, min(interval, 1))
     if config['probe_interval'] <= 0:
         interval = 0
-    return {'region_workers': workers, 'identity_workers': max(1, workers // 4),
-            'max_inflight': max(16, workers * 4), 'launch_interval': interval,
+    return {'probe_workers': workers, 'max_inflight': max(16, workers * 2),
+            'launch_interval': interval,
             'backlog': backlog, 'reason': reason, **pressure}

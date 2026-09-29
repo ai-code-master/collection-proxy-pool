@@ -28,8 +28,9 @@ def initialize(db):
 
 def save(db, url, target, result, valid_seconds):
     values = []
-    for region in REGIONS:
-        value = result['capabilities'][region]
+    for region, value in result['capabilities'].items():
+        if region not in REGIONS:
+            continue
         valid_until = result['checked_at'] + valid_seconds if value['state'] == 'available' else 0
         values.append((url, region, value['state'], result['checked_at'], valid_until,
                        value['http_status'], value['latency_ms'], value['endpoint'],

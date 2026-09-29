@@ -57,7 +57,7 @@ function renderService(status) {
   power.title = stopped ? '收集与校验已停止，点击恢复' : '点击停止收集与校验';
   setText('#daemon-state', alive ? '维护服务运行中' : '维护心跳已延迟');
   $('#daemon-dot').classList.toggle('stale',!alive);
-  setText('#run-state', stopped ? '收集与检测已停止' : paused ? '连通性检测已暂停' : heartbeat.state === 'staged_pipeline' ? '国内 / 国外分阶段并行检测' : heartbeat.state === 'pipeline' ? '预筛与 HTTPS 检测同时进行' : heartbeat.state === 'screening' ? '正在快速预筛' : '等待下一轮复测');
+  setText('#run-state', stopped ? '收集与检测已停止' : paused ? '连通性检测已暂停' : heartbeat.state === 'staged_pipeline' ? '正在进行最小 HTTPS 连通性检测' : heartbeat.state === 'pipeline' ? '预筛与 HTTPS 检测同时进行' : heartbeat.state === 'screening' ? '正在快速预筛' : '等待下一轮复测');
   return {stopped,paused,profile};
 }
 
@@ -72,7 +72,7 @@ function renderOverview(data) {
   const service = renderService(status);
   setText('#available-count',available.toLocaleString());
   setText('#unique-exits',Number(profile.unique_exit_ips || 0).toLocaleString());
-  setText('#available-split',available ? `国内 ${Number(connectivity.domestic || 0).toLocaleString()} · 国外 ${Number(connectivity.overseas || 0).toLocaleString()}` : '通过通用 HTTPS 连通性检测');
+  setText('#available-split',available ? `已通过最小 HTTPS 转发验证 · 国内站命中 ${Number(connectivity.domestic || 0).toLocaleString()} · 国外站命中 ${Number(connectivity.overseas || 0).toLocaleString()}` : '通过通用 HTTPS 连通性检测');
   setText('#tab-available',available);
   setText('#candidate-count',Number(status.candidates || 0).toLocaleString());
   setText('#pending-count',Number(states.untested || 0).toLocaleString());
@@ -83,7 +83,7 @@ function renderOverview(data) {
   $('#domestic-bar').style.width = `${Math.min(100,(connectivity.domestic || 0)/Math.max(1,available)*100)}%`;
   $('#overseas-bar').style.width = `${Math.min(100,(connectivity.overseas || 0)/Math.max(1,available)*100)}%`;
   setText('#cycle-text',service.stopped ? '点击右上角开关恢复' : service.paused ? '恢复时间：'+fullDate(service.profile.paused_until) : `上轮 ${last.tested ?? 0} 个 · 预筛拦截 ${last.prefilter_failed ?? 0} · ${relative(last.finished_at)}`);
-  setText('#cadence',`${config.prefilter_workers} 路预筛 / 国内国外各 ${plan.region_workers || config.workers} 路 · ${plan.launch_interval ?? config.probe_interval} 秒发起间隔 · ${plan.reason || '等待调度'}`);
+  setText('#cadence',`${config.prefilter_workers} 路预筛 / ${plan.probe_workers || config.workers} 路最小 HTTPS 检测 · ${plan.launch_interval ?? config.probe_interval} 秒发起间隔 · ${plan.reason || '等待调度'}`);
   [['#due-count','due'],['#cooling-count','cooling'],['#recovery-count','recovery'],['#probe-count','probes_10m']].forEach(([id,key]) => setText(id,Number(queues[key] || 0).toLocaleString()));
   setText('#queue-summary',`冷队列 ${Number(queues.cold || 0).toLocaleString()} · 需认证 ${Number(states.auth_required || 0).toLocaleString()} · 历史可用优先恢复`);
   const sources = status.sources || [];

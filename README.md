@@ -14,9 +14,9 @@
 
 ## 检测规则
 
-每个代理分别检查用户配置的国内和国外 HTTPS 目标，各区域先试主端点，失败才试备用端点。仓库不为任何第三方目标背书，也不内置 IP 回显服务。
+每个代理先经过 TCP/协议握手预筛，再按配置顺序最多尝试 3 个小响应 HTTPS 目标。任意目标成功即判定代理可用并停止后续检测；全部失败才判定不可用。仓库不为任何第三方目标背书，也不内置 IP 回显服务。
 
-任一区域成功，代理即可进入默认池。调用方也可用 `reach=domestic`、`overseas` 或 `both` 筛选。非预期 HTTP 响应只算当前探测目标失败，不会被解读为任何业务风控结论。
+`reach=domestic` 或 `overseas` 仅筛选最近实际命中过对应区域目标的记录；默认使用 `reach=any`。ICMP ping 和单纯端口开放不会被当作可用，因为它们不能证明代理完成了 HTTPS 转发。非预期 HTTP 响应只算当前探测目标失败，不会被解读为任何业务风控结论。
 
 ## 快速使用
 
@@ -51,7 +51,7 @@ curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies?limit=100"
 v1 API 根据客户端访问 API 时使用的地址自动生成代理地址，不依赖写死 IP。Mihomo 节点每个使用一个独立端口，从 `mihomo.json` 的 `base_port` 开始，数量跟随当前节点数量；不提供统一轮换入口：
 
 ```sh
-curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies/random?reach=both"
+curl --noproxy '*' "http://${MINI_HOST}:21992/api/v1/proxies/random?reach=any"
 ```
 
 原有 `/next` 和各种订阅地址继续保留，现有通用调用方无需修改。

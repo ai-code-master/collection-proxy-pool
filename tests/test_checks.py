@@ -37,6 +37,33 @@ class CheckTest(unittest.TestCase):
         self.assertEqual((result['state'], result['endpoint']), ('available', entries[0]['url']))
         fetch.assert_called_once()
 
+    def test_connectivity_stops_after_first_success_across_regions(self):
+        target = {'targets': {
+            'domestic': [{'url': 'https://d1.test', 'status': 204},
+                         {'url': 'https://d2.test', 'status': 204}],
+            'overseas': [{'url': 'https://o1.test', 'status': 204},
+                         {'url': 'https://o2.test', 'status': 204}]},
+            'identity_targets': []}
+        replies = [dict(status=0, error='timeout', body='', latency_ms=10),
+                   dict(status=204, error='', body='', latency_ms=20)]
+        with patch.object(checks, 'fetch', side_effect=replies) as fetch, \
+                patch.object(checks, 'probe_identity', return_value=None):
+            result = checks.check('http://8.8.8.8:80', 'connectivity', target)
+        self.assertEqual(result['state'], 'available')
+        self.assertEqual(result['reason'], 'overseas')
+        self.assertEqual(fetch.call_count, 2)
+
+    def test_connectivity_never_tries_more_than_three_sites(self):
+        target = {'targets': {
+            'domestic': [{'url': f'https://d{i}.test', 'status': 204} for i in range(3)],
+            'overseas': [{'url': f'https://o{i}.test', 'status': 204} for i in range(2)]},
+            'identity_targets': []}
+        failure = dict(status=0, error='timeout', body='', latency_ms=10)
+        with patch.object(checks, 'fetch', return_value=failure) as fetch:
+            result = checks.check('http://8.8.8.8:80', 'connectivity', target)
+        self.assertEqual(result['state'], 'unreachable')
+        self.assertEqual(fetch.call_count, 3)
+
     def test_untrusted_proxy_addresses(self):
         for value in ('http://127.0.0.1:80', 'http://10.0.0.1:80', 'http://[::1]:80',
                       'http://169.254.169.254:80', 'http://example.org:80',

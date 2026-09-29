@@ -18,12 +18,12 @@ class CapacityTest(unittest.TestCase):
 
     def test_deep_backlog_expands_with_a_bounded_limit(self):
         plan = self.choose(1000, {'load_ratio': .4, 'fd_ratio': .1})
-        self.assertEqual((plan['region_workers'], plan['launch_interval']), (24, .35))
+        self.assertEqual((plan['probe_workers'], plan['launch_interval']), (48, .35))
         self.assertEqual(plan['reason'], 'deep_backlog')
 
     def test_resource_pressure_reduces_concurrency(self):
         plan = self.choose(1000, {'load_ratio': 1.6, 'fd_ratio': .1})
-        self.assertEqual((plan['region_workers'], plan['launch_interval']), (4, 2))
+        self.assertEqual((plan['probe_workers'], plan['launch_interval']), (8, 2))
         self.assertEqual(plan['reason'], 'resource_pressure')
 
 

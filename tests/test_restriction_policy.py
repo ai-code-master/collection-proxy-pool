@@ -39,6 +39,17 @@ class ConnectivityPolicyTest(unittest.TestCase):
         self.assertEqual(self.store.available('connectivity', self.target, reach='overseas'), [])
         self.assertEqual(self.store.available('connectivity', self.target, reach='both'), [])
 
+    def test_short_circuit_result_can_record_one_observed_region(self):
+        now = time.time()
+        capabilities = {'domestic': dict(state='available', reason='HTTP 204',
+                        http_status=204, latency_ms=10, endpoint='https://domestic.test')}
+        self.store.record(self.url, 'connectivity', self.target,
+                          dict(state='available', checked_at=now, http_status=204,
+                               latency_ms=10, reason='domestic', capabilities=capabilities), self.config)
+        self.assertEqual(len(self.store.available('connectivity', self.target, reach='any')), 1)
+        self.assertEqual(len(self.store.available('connectivity', self.target, reach='domestic')), 1)
+        self.assertEqual(self.store.available('connectivity', self.target, reach='overseas'), [])
+
     def test_dashboard_has_no_restricted_filter(self):
         with self.assertRaisesRegex(ValueError, '未知状态'):
             listing(self.store, self.config, {'state': ['restricted']})

@@ -49,7 +49,8 @@ ts=123''', provider='cloudflare')
         with patch.object(checks, 'probe_region', return_value=capability), \
                 patch.object(checks, 'probe_identity', return_value=identity) as detect:
             result = checks.check('http://8.8.8.8:80', 'connectivity',
-                                  {'targets': {'domestic': [], 'overseas': []},
+                                  {'targets': {'domestic': [{'url': 'https://one.test', 'status': 204}],
+                                               'overseas': []},
                                    'identity_targets': []})
         self.assertEqual(result['identity'], identity)
         detect.assert_called_once()

@@ -6,7 +6,7 @@ export function renderRows(data) {
     return `<tr><td><div class="address">${esc(row.host)}:${esc(row.port)}</div>${row.exit_ip ? `<span class="exit-ip">出口 ${esc(row.exit_ip)}</span>` : ''}</td>
       <td><span class="tier tier-${esc(row.grade)}">${esc(row.grade)} · ${esc(row.grade_name)}</span><small class="subtle">${row.grade === 'A' || row.grade === 'B' ? '稳定计分 '+Number(row.success_streak)+'/3' : esc(row.retry_name || '失败重试')}</small></td>
       <td><span class="protocol ${row.protocol === 'SOCKS5' ? 'socks5' : ''}">${esc(row.protocol)}</span></td><td>${esc(countryName(row.country || 'unknown'))}</td>
-      <td><span class="project-label"><span class="project-dot"></span>${row.domestic ? '国内✓' : '国内—'} · ${row.overseas ? '国外✓' : '国外—'}</span><small class="subtle">通用 HTTPS 检测</small></td>
+      <td><span class="project-label"><span class="project-dot"></span>${row.domestic ? '国内站✓' : '国内站—'} · ${row.overseas ? '国外站✓' : '国外站—'}</span><small class="subtle">任一 HTTPS 成功即通过</small></td>
       <td><div class="speed ${speed > 5000 ? 'slow' : ''}">${speed == null ? '—' : Math.round(speed).toLocaleString()+' <small>ms</small>'}${speed == null ? '' : `<progress value="${Math.min(12000,speed)}" max="12000"></progress>`}</div></td>
       <td>${badge(row.effective_state)}</td>${timeCell(row.checked_at)}${timeCell(row.last_success)}${timeCell(row.last_failure)}
       <td><button class="detail-button" data-proxy="${esc(row.url)}" aria-label="查看 ${esc(row.host)} 详情">↗</button></td></tr>`;
