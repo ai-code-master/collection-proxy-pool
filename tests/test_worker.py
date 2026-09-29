@@ -36,7 +36,9 @@ class WorkerTest(unittest.TestCase):
                     patch.object(worker.checks, 'probe_region', side_effect=check) as checker:
                 result = worker.cycle(store, config, NoWait())
             self.assertEqual(result['tested'], 8)
-            self.assertEqual(checker.call_count, 16)
+            targets = config['profiles']['connectivity']['targets']
+            sites = min(worker.checks.MAX_SITES, sum(map(len, targets.values())))
+            self.assertEqual(checker.call_count, 8 * sites)
             with patch.object(worker.checks, 'probe_region') as checker:
                 result = worker.cycle(Store(store.path), settings.load(), NoWait())
             self.assertEqual(result['tested'], 0)
