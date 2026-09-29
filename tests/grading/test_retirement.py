@@ -46,6 +46,14 @@ class RetirementTests(unittest.TestCase):
         for i in range(11):self.record('unreachable',self.now+86400+i*60)
         self.assertEqual(cleanup(self.store,self.now+2*86400,True),0)
 
+    def test_historically_successful_proxy_is_never_auto_archived(self):
+        self.record('available',self.now-9*86400)
+        self.failing()
+        self.assertEqual(cleanup(self.store,self.now,True),0)
+        with self.store.write() as db:
+            db.execute('UPDATE proxies SET last_seen=?',(self.now-8*86400,))
+        self.assertEqual(cleanup(self.store,self.now,True),0)
+
     def test_auth_required_interrupts_failure_period(self):
         self.failing()
         self.record('auth_required',self.now+1)

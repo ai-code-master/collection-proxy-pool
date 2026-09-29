@@ -7,6 +7,7 @@ from pathlib import Path
 from lib.storage import Store
 from lib.settings import load
 from lib.api.dashboard import listing
+from lib.policy import retries
 from lib.scheduling.retirement import cleanup, restore
 
 
@@ -30,16 +31,34 @@ class RetryTests(unittest.TestCase):
     def row(self):
         return listing(self.store, self.config, {'state': ['all']})['items'][0]
 
-    def test_cold_requires_failure_span_and_resets_on_success(self):
-        for i in range(5):
-            self.record('unreachable', self.now-25*3600+i*60)
+    def test_never_worked_enters_daily_queue_after_three_failures(self):
+        self.record('unreachable', self.now-700)
         self.assertEqual(self.row()['retry_tier'], 'retry')
-        self.record('unreachable', self.now-1)
+        self.record('unreachable', self.now-600)
+        self.assertEqual(self.row()['retry_tier'], 'retry')
+        self.record('unreachable', self.now-500)
         row = self.row()
         self.assertEqual(row['retry_tier'], 'cold')
         self.assertEqual(row['next_check']-row['checked_at'], 86400)
+
+    def test_upgrade_moves_existing_never_worked_failures_to_daily_queue(self):
+        self.record('unreachable', self.now-100)
+        with self.store.write() as db:
+            db.execute("DELETE FROM meta WHERE key='retry_policy_v2'")
+            db.execute("UPDATE retry_health SET failures=3,tier='retry',last_success=0")
+            retries.initialize(db)
+        row = self.row()
+        self.assertEqual(row['retry_tier'], 'cold')
+        self.assertEqual(row['next_check'], row['checked_at']+86400)
+
+    def test_cold_proxy_is_upgraded_and_rechecked_soon_after_success(self):
+        for i in range(3):
+            self.record('unreachable', self.now-500+i*60)
         self.record('available', self.now)
-        self.assertEqual(self.row()['retry_tier'], 'healthy')
+        row = self.row()
+        self.assertEqual(row['retry_tier'], 'healthy')
+        self.assertEqual(row['grade'], 'B')
+        self.assertEqual(row['next_check']-row['checked_at'], self.config['new_recheck_interval'])
 
     def test_recent_success_gets_recovery_queue_and_stale_failure_cannot_change_it(self):
         self.record('available', self.now-100)
@@ -49,6 +68,14 @@ class RetryTests(unittest.TestCase):
         self.assertLessEqual(self.row()['next_check']-self.row()['checked_at'], 900)
         self.record('unreachable', self.now-200)
         self.assertEqual(self.row()['retry_tier'], 'recovery')
+
+    def test_historical_success_gets_three_fast_recovery_attempts(self):
+        self.record('available', self.now-30*86400)
+        for offset in (300, 200, 100):
+            self.record('unreachable', self.now-offset)
+            self.assertEqual(self.row()['retry_tier'], 'recovery')
+        self.record('unreachable', self.now)
+        self.assertEqual(self.row()['retry_tier'], 'retry')
 
     def test_auth_required_never_enters_cold_queue(self):
         self.record('auth_required', self.now-1)

@@ -20,10 +20,8 @@ def cleanup(store, now=None, force=False):
             WHERE e.platform='connectivity' AND e.state='unreachable'
             AND c.state='unreachable' AND e.checked_at<=?
             AND NOT EXISTS(SELECT 1 FROM authenticated_proxies a WHERE a.url=e.url)
-            AND NOT EXISTS(SELECT 1 FROM checks other WHERE other.url=e.url
-                AND other.platform='connectivity' AND other.state!='unreachable')
-            AND e.checked_at>COALESCE((SELECT MAX(h.checked_at) FROM check_events h
-                WHERE h.url=e.url AND h.platform=e.platform AND h.state!='unreachable'),0)
+            AND NOT EXISTS(SELECT 1 FROM check_events history WHERE history.url=e.url
+                AND history.platform='connectivity' AND history.state!='unreachable')
             GROUP BY e.url,e.platform HAVING COUNT(*)>=10 AND MIN(e.checked_at)<=?
             AND MAX(e.checked_at)-MIN(e.checked_at)>=? AND MAX(e.checked_at)>=? LIMIT 500''',
             (now,now-7*86400,7*86400,now-86400)).fetchall()
@@ -32,11 +30,9 @@ def cleanup(store, now=None, force=False):
             AND NOT EXISTS(SELECT 1 FROM authenticated_proxies a WHERE a.url=p.url)
             AND EXISTS(SELECT 1 FROM checks c WHERE c.url=p.url
                 AND c.platform='connectivity' AND c.state='unreachable')
-            AND NOT EXISTS(SELECT 1 FROM checks c WHERE c.url=p.url
-                AND c.platform='connectivity' AND c.state!='unreachable')
-            AND NOT EXISTS(SELECT 1 FROM check_events e WHERE e.url=p.url
-                AND e.state!='unreachable' AND e.checked_at>?)
-            ORDER BY p.last_seen LIMIT 500''', (now-7*86400, now-7*86400)).fetchall()
+            AND NOT EXISTS(SELECT 1 FROM check_events history WHERE history.url=p.url
+                AND history.platform='connectivity' AND history.state!='unreachable')
+            ORDER BY p.last_seen LIMIT 500''', (now-7*86400,)).fetchall()
         for row in stale:
             if len(selected) >= 500:
                 break
