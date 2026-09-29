@@ -34,13 +34,13 @@ def choose(store, config, target):
     backlog = due_count(store, target)
     pressure = resource_pressure()
     base = config['workers']
-    maximum = min(32, max(base, base * 2))
+    maximum = min(24, max(base, base * 3))
     interval = config['probe_interval']
     reason = 'balanced'
     if pressure['load_ratio'] >= 1.5 or pressure['fd_ratio'] >= .7:
         workers, interval, reason = max(2, base // 2), max(1, interval), 'resource_pressure'
     elif backlog >= config['batch_size'] * 4:
-        workers, interval, reason = maximum, max(.25, interval / 4), 'deep_backlog'
+        workers, interval, reason = maximum, max(.35, interval / 6), 'deep_backlog'
     elif backlog >= config['batch_size']:
         workers, interval, reason = min(maximum, base + max(2, base // 2)), max(.5, interval / 2), 'backlog'
     else:
