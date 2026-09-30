@@ -105,6 +105,7 @@ class Store:
             db.execute('BEGIN IMMEDIATE')
             before = db.execute('SELECT COUNT(*) FROM proxies').fetchone()[0]
             blocked = {r[0] for r in db.execute('SELECT url FROM retired_proxies WHERE retry_after>?', (now,))}
+            blocked.update(r[0] for r in db.execute('SELECT url FROM authenticated_proxies'))
             values = [value for value in values if value[0] not in blocked]
             db.executemany('''INSERT INTO proxies(url,first_seen,last_seen,sources,source_country)
                 VALUES(?,?,?,?,?) ON CONFLICT(url) DO UPDATE SET last_seen=excluded.last_seen,
@@ -121,9 +122,10 @@ class Store:
 
     def needs_check(self, url, platform, target):
         with self.connect() as db:
+            blocked = db.execute('SELECT 1 FROM authenticated_proxies WHERE url=?', (url,)).fetchone()
             row = db.execute('SELECT state,target,next_check FROM checks WHERE url=? AND platform=?',
                              (url, platform)).fetchone()
-        if row is not None and row['state'] == 'auth_required':
+        if blocked or row is not None and row['state'] == 'auth_required':
             return False
         return row is None or row['next_check'] <= time.time() or row['target'] != target
 

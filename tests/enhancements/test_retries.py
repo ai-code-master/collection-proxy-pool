@@ -77,9 +77,9 @@ class RetryTests(unittest.TestCase):
         self.record('unreachable', self.now)
         self.assertEqual(self.row()['retry_tier'], 'retry')
 
-    def test_auth_required_never_enters_cold_queue(self):
+    def test_auth_required_is_removed_from_active_queues(self):
         self.record('auth_required', self.now-1)
-        self.assertEqual(self.row()['retry_tier'], 'auth_required')
+        self.assertEqual(listing(self.store, self.config, {'state': ['all']})['items'], [])
         self.assertEqual(self.store.due('connectivity', 'changed', 200, self.now+86400), [])
 
     def test_cold_candidates_cannot_borrow_entire_batch(self):
@@ -122,8 +122,9 @@ class RetryTests(unittest.TestCase):
         self.assertEqual(len(self.store.due('connectivity', self.target, 200)), 1)
         self.assertEqual(self.store.available('connectivity', self.target), [])
 
-    def test_disappeared_auth_required_source_is_retained(self):
+    def test_disappeared_auth_required_source_is_removed(self):
         with self.store.connect() as db:
             db.execute('UPDATE proxies SET last_seen=?', (self.now-8*86400,))
         self.record('auth_required', self.now-86400)
         self.assertEqual(cleanup(self.store, self.now, True), 0)
+        self.assertEqual(self.store.status(self.config)['candidates'], 0)

@@ -8,7 +8,7 @@
 
 - `available`：至少一个区域通过。
 - `unreachable`：国内、国外端点均失败。
-- `auth_required`：代理需要认证，不进入公共池。
+- 需要认证：立即移出活跃库并永久抑制重新导入，不进入匿名代理池。
 - `expired` / `unverified` / `disabled`：看板计算出的有效性状态。
 
 `connectivity_capabilities` 分别记录 `domestic` 和 `overseas`。备用端点只在主端点失败时请求，避免对每个 IP 做过多探测。

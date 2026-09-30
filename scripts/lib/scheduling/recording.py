@@ -4,7 +4,7 @@ import json
 from .. import history
 from ..probing import capabilities
 from .grading import advance
-from ..policy import retries
+from ..policy import retries, unsupported
 
 
 def save(db, url, platform, target, result, config):
@@ -15,6 +15,9 @@ def save(db, url, platform, target, result, config):
     if old and result.get('started_at', now) < old['checked_at']:
         return False
     history.append(db, url, platform, target, result)
+    if result['state'] == 'auth_required':
+        unsupported.reject(db, url, result['reason'], now)
+        return True
     failures = 0 if result['state'] == 'available' else min(10, (old['failures'] if old else 0)+1)
     successes = advance(db, url, platform, target, result)
     interval = config['recheck_interval'] if successes >= 3 else config.get('new_recheck_interval', 300)

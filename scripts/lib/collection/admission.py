@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..net import is_loopback_url
 from ..checks import primary_host
+from ..policy import unsupported
 from ..scheduling.prefilter import probe
 
 
@@ -27,13 +28,15 @@ def enqueue(store, rows, limit=20000, source_limit=5000):
     public = [row for row in rows if not is_loopback_url(row['proxy'])][:source_limit]
     added = store.ingest(trusted) if trusted else 0
     values = [(row['proxy'], now, now, json.dumps(row.get('sources', [])),
-               row.get('source_country'), 0, row['proxy'], row['proxy'], now) for row in public]
+               row.get('source_country'), 0, row['proxy'], row['proxy'], now,
+               row['proxy']) for row in public]
     with store.write() as db:
         db.execute('BEGIN IMMEDIATE')
         before = db.execute('SELECT COUNT(*) FROM candidate_queue').fetchone()[0]
         db.executemany('''INSERT INTO candidate_queue
             SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM proxies WHERE url=?)
             AND NOT EXISTS(SELECT 1 FROM candidate_rejections WHERE url=? AND retry_after>?)
+            AND NOT EXISTS(SELECT 1 FROM authenticated_proxies WHERE url=?)
             ON CONFLICT(url) DO UPDATE SET last_seen=excluded.last_seen,
             sources=(SELECT json_group_array(value) FROM (
                 SELECT value FROM json_each(COALESCE(candidate_queue.sources,'[]'))
@@ -81,11 +84,16 @@ def promote(store, config, stopped):
     with store.write() as db:
         db.execute('BEGIN IMMEDIATE')
         db.executemany('DELETE FROM candidate_queue WHERE url=?', [(url,) for url in processed])
+        for row, result in failed:
+            if result.get('state') == 'auth_required':
+                unsupported.reject(db, row['url'], result['reason'], now)
+        retryable = [(row, result) for row, result in failed
+                     if result.get('state') != 'auth_required']
         db.executemany('''INSERT INTO candidate_rejections VALUES(?,?,?,?,1)
             ON CONFLICT(url) DO UPDATE SET rejected_at=excluded.rejected_at,
             retry_after=excluded.retry_after,reason=excluded.reason,failures=failures+1''',
             [(row['url'], now, now+config['candidate_retry_hours']*3600,
-              result['reason']) for row, result in failed])
+              result['reason']) for row, result in retryable])
         db.execute('DELETE FROM candidate_rejections WHERE retry_after<?', (now-30*86400,))
     result = {'finished_at': now, 'screened': len(processed), 'promoted': promoted,
               'rejected': len(failed), 'interrupted': len(interrupted)}

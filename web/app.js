@@ -85,7 +85,7 @@ function renderOverview(data) {
   setText('#cycle-text',service.stopped ? '点击右上角开关恢复' : service.paused ? '恢复时间：'+fullDate(service.profile.paused_until) : `上轮 ${last.tested ?? 0} 个 · 预筛拦截 ${last.prefilter_failed ?? 0} · ${relative(last.finished_at)}`);
   setText('#cadence',`${config.prefilter_workers} 路预筛 / ${plan.probe_workers || config.workers} 路最小 HTTPS 检测 · ${plan.launch_interval ?? config.probe_interval} 秒发起间隔 · ${plan.reason || '等待调度'}`);
   [['#due-count','due'],['#cooling-count','cooling'],['#recovery-count','recovery'],['#probe-count','probes_10m']].forEach(([id,key]) => setText(id,Number(queues[key] || 0).toLocaleString()));
-  setText('#queue-summary',`冷队列 ${Number(queues.cold || 0).toLocaleString()} · 需认证 ${Number(states.auth_required || 0).toLocaleString()} · 历史可用优先恢复`);
+  setText('#queue-summary',`冷队列 ${Number(queues.cold || 0).toLocaleString()} · 历史可用优先恢复`);
   const sources = status.sources || [];
   const healthySources = sources.filter(source => source.http_status === 200 && !source.error).length;
   setText('#source-count',`${healthySources} / ${sources.length}`);

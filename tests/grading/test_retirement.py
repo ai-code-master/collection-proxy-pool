@@ -54,13 +54,12 @@ class RetirementTests(unittest.TestCase):
             db.execute('UPDATE proxies SET last_seen=?',(self.now-8*86400,))
         self.assertEqual(cleanup(self.store,self.now,True),0)
 
-    def test_auth_required_interrupts_failure_period(self):
+    def test_auth_required_removes_proxy_before_retirement(self):
         self.failing()
         self.record('auth_required',self.now+1)
         self.assertEqual(cleanup(self.store,self.now,True),0)
-        self.record('unreachable',self.now+2)
-        self.assertEqual(cleanup(self.store,self.now,True),0)
-        self.assertEqual(self.store.status(self.config)['candidates'],1)
+        self.assertEqual(self.store.status(self.config)['candidates'],0)
+        self.assertEqual(self.store.ingest([{'proxy':self.url}],seen=self.now+2),0)
 
     def test_old_burst_without_week_of_observation_is_retained(self):
         for i in range(10):

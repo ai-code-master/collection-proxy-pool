@@ -29,12 +29,18 @@ class AnonymousOnlyTests(unittest.TestCase):
                           http_status=407 if state == 'auth_required' else 200,
                           latency_ms=1, reason='test'), self.config)
 
-    def test_requires_auth_stops_checking_and_does_not_enter_public_exports(self):
-        self.record('http://8.8.8.8:80', 'auth_required')
-        self.assertFalse(self.store.needs_check('http://8.8.8.8:80', 'connectivity', self.target))
+    def test_requires_auth_is_removed_and_permanently_blocked(self):
+        url = 'http://8.8.8.8:80'
+        self.record(url, 'auth_required')
+        self.assertFalse(self.store.needs_check(url, 'connectivity', self.target))
         self.assertEqual(self.store.due('connectivity', self.target, 10), [])
+        self.assertEqual(self.store.status(self.config)['candidates'], 0)
+        self.assertEqual(self.store.ingest([{'proxy': url}]), 0)
         self.assertEqual(response(self.store, self.config, '/next')[0], 503)
         self.assertEqual(response(self.store, self.config, '/proxies.txt')[1], '')
+        with self.store.connect() as db:
+            self.assertEqual(db.execute(
+                'SELECT COUNT(*) FROM authenticated_proxies WHERE url=?', (url,)).fetchone()[0], 1)
         self.record('http://8.8.4.4:80', 'available')
         server.reset_caches()
         self.assertEqual(response(self.store, self.config, '/next')[1]['proxy'], 'http://8.8.4.4:80')
@@ -44,11 +50,13 @@ class AnonymousOnlyTests(unittest.TestCase):
         self.record(url, 'available')
         with self.store.connect() as db:
             db.execute("DELETE FROM meta WHERE key='credentials_removed_v1'")
+            db.execute("DELETE FROM meta WHERE key='auth_endpoints_removed_v2'")
             db.execute('INSERT INTO authenticated_proxies VALUES(?,?,1)', (url, 'old-hash'))
         store = Store(self.store.path)
         self.assertEqual(response(store, self.config, '/next')[0], 503)
         self.assertEqual(store.due('connectivity', self.target, 10), [])
-        self.assertEqual(store.records(self.config)[0]['state'], 'auth_required')
+        self.assertEqual(store.records(self.config), [])
+        self.assertEqual(store.status(self.config)['candidates'], 0)
         with store.connect() as db:
             self.assertEqual(db.execute('SELECT enabled FROM authenticated_proxies').fetchone()[0], 0)
 

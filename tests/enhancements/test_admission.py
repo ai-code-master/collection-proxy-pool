@@ -47,3 +47,16 @@ class AdmissionTests(unittest.TestCase):
         with self.store.connect() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM proxies').fetchone()[0], 1)
             self.assertEqual(db.execute('SELECT COUNT(*) FROM candidate_queue').fetchone()[0], 0)
+
+    def test_auth_candidate_is_permanently_rejected(self):
+        url = 'http://8.8.8.8:80'
+        self.assertEqual(admission.enqueue(self.store, [dict(proxy=url)]), 1)
+        result = dict(state='auth_required', reason='proxy_authentication_required')
+        with patch.object(admission, 'probe', return_value=result):
+            self.assertEqual(admission.promote(
+                self.store, self.config, threading.Event())['rejected'], 1)
+        self.assertEqual(admission.enqueue(self.store, [dict(proxy=url)]), 0)
+        with self.store.connect() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM candidate_queue').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM candidate_rejections').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM authenticated_proxies').fetchone()[0], 1)

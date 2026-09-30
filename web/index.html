@@ -70,8 +70,8 @@
 
   <section id="proxies-view" class="panel" hidden>
     <div class="panel-head"><div><h2>代理节点</h2><span id="result-count">加载中…</span></div><a class="text-link" href="/connectivity/proxies.csv" download="可用代理.csv">导出 CSV</a></div>
-    <div class="filters"><div class="state-tabs" role="group" aria-label="状态筛选"><button data-state="available" class="active">可用 <b id="tab-available">—</b></button><button data-state="all">全部</button><button data-state="failed">失败 / 过期</button><button data-state="untested">未检测</button><button data-state="auth_required">需要认证</button></div>
-      <label class="retry-control">复测队列 <select id="retry"><option value="">全部队列</option><option value="recovery">历史可用，优先恢复</option><option value="retry">失败重试</option><option value="cold">冷队列，每天复测</option><option value="auth_required">需认证，已停检</option></select></label>
+    <div class="filters"><div class="state-tabs" role="group" aria-label="状态筛选"><button data-state="available" class="active">可用 <b id="tab-available">—</b></button><button data-state="all">全部</button><button data-state="failed">失败 / 过期</button><button data-state="untested">未检测</button></div>
+      <label class="retry-control">复测队列 <select id="retry"><option value="">全部队列</option><option value="recovery">历史可用，优先恢复</option><option value="retry">失败重试</option><option value="cold">冷队列，每天复测</option></select></label>
       <div class="filter-controls"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="搜索代理或出口 IP" aria-label="搜索代理"></label><select id="grade"><option value="">所有等级</option><option value="A">A · 稳定</option><option value="B">B · 观察</option><option value="D">D · 待检测</option><option value="E">E · 重试</option></select><select id="country"><option value="">所有地区</option></select><select id="protocol"><option value="">所有协议</option><option value="http">HTTP</option><option value="socks4">SOCKS4</option><option value="socks5">SOCKS5</option></select><select id="project"><option value="connectivity">通用连通性</option></select></div>
     </div>
     <p id="grade-summary" class="grade-summary">等级用于调度，是否可用以状态为准。</p>
